@@ -1,0 +1,208 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "node-input",
+      "name": "Applicant Input",
+      "type": "inputNode",
+      "position": { "x": 60, "y": 200 }
+    },
+    {
+      "id": "node-uw-table",
+      "name": "Underwriting Decision Table",
+      "type": "decisionTableNode",
+      "position": { "x": 320, "y": 200 },
+      "content": {
+        "hitPolicy": "collect",
+        "inputs": [
+          { "id": "in-age", "name": "Age", "field": "age" },
+          { "id": "in-bmi", "name": "BMI", "field": "bmi" },
+          { "id": "in-bp", "name": "Systolic BP", "field": "systolicBp" },
+          { "id": "in-smoker", "name": "Smoker", "field": "smoker" },
+          { "id": "in-sa", "name": "Sum Assured", "field": "sumAssured" },
+          { "id": "in-med", "name": "Medical Conditions", "field": "medicalConditions" },
+          { "id": "in-occ", "name": "Occupation Class", "field": "occupationClass" }
+        ],
+        "outputs": [
+          { "id": "out-dec", "name": "Decision", "field": "ruleDecision" },
+          { "id": "out-id", "name": "Rule ID", "field": "ruleId" },
+          { "id": "out-cat", "name": "Category", "field": "category" },
+          { "id": "out-load", "name": "Loading %", "field": "loadingPct" },
+          { "id": "out-reason", "name": "Reason", "field": "reason" }
+        ],
+        "rules": [
+          {
+            "_id": "r1",
+            "in-age": "< 18 or > 65",
+            "in-bmi": "",
+            "in-bp": "",
+            "in-smoker": "",
+            "in-sa": "",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"DECLINE\"",
+            "out-id": "\"RULE_AGE_KNOCKOUT\"",
+            "out-cat": "\"ELIGIBILITY\"",
+            "out-load": "0",
+            "out-reason": "\"Applicant age outside insurable range 18-65\""
+          },
+          {
+            "_id": "r2",
+            "in-age": "",
+            "in-bmi": ">= 38",
+            "in-bp": "",
+            "in-smoker": "",
+            "in-sa": "",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"DECLINE\"",
+            "out-id": "\"RULE_EXTREME_BMI\"",
+            "out-cat": "\"MEDICAL\"",
+            "out-load": "0",
+            "out-reason": "\"Severe obesity BMI >= 38\""
+          },
+          {
+            "_id": "r3",
+            "in-age": "",
+            "in-bmi": "",
+            "in-bp": ">= 180",
+            "in-smoker": "",
+            "in-sa": "",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"DECLINE\"",
+            "out-id": "\"RULE_HYPERTENSIVE_CRISIS\"",
+            "out-cat": "\"MEDICAL\"",
+            "out-load": "0",
+            "out-reason": "\"Systolic BP >= 180 uninsurable\""
+          },
+          {
+            "_id": "r4",
+            "in-age": "",
+            "in-bmi": ">= 28",
+            "in-bp": "",
+            "in-smoker": "",
+            "in-sa": "",
+            "in-med": "contains($, \"FATTY_LIVER\")",
+            "in-occ": "",
+            "out-dec": "\"UNCLEAN\"",
+            "out-id": "\"RULE_BMI_COMORBIDITY\"",
+            "out-cat": "\"MEDICAL\"",
+            "out-load": "25",
+            "out-reason": "\"BMI >= 28 combined with Fatty Liver requires medical review\""
+          },
+          {
+            "_id": "r5",
+            "in-age": "",
+            "in-bmi": "",
+            "in-bp": "[140..179]",
+            "in-smoker": "true",
+            "in-sa": "",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"UNCLEAN\"",
+            "out-id": "\"RULE_BP_SMOKER_SYNERGY\"",
+            "out-cat": "\"MEDICAL\"",
+            "out-load": "50",
+            "out-reason": "\"Elevated BP with smoking history requires cardiovascular assessment\""
+          },
+          {
+            "_id": "r6",
+            "in-age": "",
+            "in-bmi": ">= 28",
+            "in-bp": "",
+            "in-smoker": "",
+            "in-sa": "> 1000000",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"UNCLEAN\"",
+            "out-id": "\"RULE_HIGH_SUM_ASSURED\"",
+            "out-cat": "\"FINANCIAL\"",
+            "out-load": "0",
+            "out-reason": "\"High sum assured > 1M with sub-standard vitals requires senior referral\""
+          },
+          {
+            "_id": "r7",
+            "in-age": "",
+            "in-bmi": "",
+            "in-bp": ">= 140",
+            "in-smoker": "",
+            "in-sa": "> 1000000",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"UNCLEAN\"",
+            "out-id": "\"RULE_HIGH_SUM_ASSURED\"",
+            "out-cat": "\"FINANCIAL\"",
+            "out-load": "0",
+            "out-reason": "\"High sum assured > 1M with sub-standard vitals requires senior referral\""
+          },
+          {
+            "_id": "r8",
+            "in-age": "",
+            "in-bmi": "[25..28)",
+            "in-bp": "",
+            "in-smoker": "false",
+            "in-sa": "",
+            "in-med": "",
+            "in-occ": "",
+            "out-dec": "\"CLEAN\"",
+            "out-id": "\"RULE_MILD_OVERWEIGHT_CLEAN\"",
+            "out-cat": "\"STANDARD\"",
+            "out-load": "10",
+            "out-reason": "\"Mild overweight standard auto-loading\""
+          },
+          {
+            "_id": "r9",
+            "in-age": "",
+            "in-bmi": "",
+            "in-bp": "",
+            "in-smoker": "",
+            "in-sa": "> 500000",
+            "in-med": "",
+            "in-occ": "4",
+            "out-dec": "\"UNCLEAN\"",
+            "out-id": "\"RULE_HIGH_RISK_OCCUPATION\"",
+            "out-cat": "\"OCCUPATIONAL\"",
+            "out-load": "0",
+            "out-reason": "\"Class 4 hazardous occupation with Sum Assured > 500k requires occupational questionnaire\""
+          },
+          {
+            "_id": "r10",
+            "in-age": "> 55",
+            "in-bmi": "",
+            "in-bp": "",
+            "in-smoker": "",
+            "in-sa": "",
+            "in-med": "len($) >= 2",
+            "in-occ": "",
+            "out-dec": "\"UNCLEAN\"",
+            "out-id": "\"RULE_SENIOR_MULTI_MORBIDITY\"",
+            "out-cat": "\"MEDICAL\"",
+            "out-load": "0",
+            "out-reason": "\"Senior applicant with multiple conditions requires attending physician statement (APS)\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-aggregator",
+      "name": "Decision Aggregator",
+      "type": "functionNode",
+      "position": { "x": 620, "y": 200 },
+      "content": {
+        "source": "export const handler = async (input) => {\n  const raw = Array.isArray(input) ? input : (input && Array.isArray(input.matches)) ? input.matches : (input ? [input] : []);\n  const matches = raw.filter(m => m && m.ruleId);\n  const uniqueRules = new Map();\n  for (const m of matches) {\n    if (!uniqueRules.has(m.ruleId)) uniqueRules.set(m.ruleId, m);\n  }\n  const rules = Array.from(uniqueRules.values());\n  const hasDecline = rules.some(r => r.ruleDecision === 'DECLINE');\n  const hasUnclean = rules.some(r => r.ruleDecision === 'UNCLEAN');\n  let decision = 'CLEAN';\n  if (hasDecline) decision = 'DECLINE';\n  else if (hasUnclean) decision = 'UNCLEAN';\n  const basePremiumLoadingPct = decision === 'DECLINE' ? 0 : rules.reduce((acc, r) => acc + (Number(r.loadingPct) || 0), 0);\n  const triggeredRules = rules.length > 0\n    ? rules.map(r => ({ ruleId: r.ruleId, category: r.category, reason: r.reason }))\n    : [{ ruleId: 'RULE_STANDARD_CLEAN', category: 'STANDARD', reason: 'Standard clean acceptance' }];\n  return { decision, basePremiumLoadingPct, triggeredRules };\n};"
+      }
+    },
+    {
+      "id": "node-output",
+      "name": "Final Response",
+      "type": "outputNode",
+      "position": { "x": 900, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "sourceId": "node-input", "targetId": "node-uw-table" },
+    { "id": "e2", "sourceId": "node-uw-table", "targetId": "node-aggregator" },
+    { "id": "e3", "sourceId": "node-aggregator", "targetId": "node-output" }
+  ]
+}

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Builds / artifacts
+dist/
+build/
+target/
+out/
+
+# Maven wrapper transient files
+.mvn/wrapper/*.lastUpdated
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

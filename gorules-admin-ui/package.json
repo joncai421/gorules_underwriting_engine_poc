@@ -1,0 +1,25 @@
+{
+  "name": "gorules-admin-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React admin UI embedding @gorules/jdm-editor with live simulator, trace highlighter, rule onboarding and AI copilot drawer",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@gorules/jdm-editor": "^1.52.0",
+    "lucide-react": "^0.469.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "10 canonical applicant payloads shared between the legacy Java service and the GoRules TS engine. expectedV1 = authoritative parity baseline produced by the migrated v1 rules (and the legacy Java service). expectedV2 shows the effect of the 1-click onboarded rules.",
+  "cases": [
+    {
+      "id": "CASE-01",
+      "label": "Healthy Clean",
+      "applicant": {
+        "applicantId": "APP-1001",
+        "age": 30,
+        "bmi": 22.0,
+        "smoker": false,
+        "systolicBp": 118,
+        "sumAssured": 300000,
+        "medicalConditions": [],
+        "occupationClass": 1
+      },
+      "expectedV1": { "decision": "CLEAN", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_STANDARD_CLEAN"] },
+      "expectedV2": { "decision": "CLEAN", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_STANDARD_CLEAN"] }
+    },
+    {
+      "id": "CASE-02",
+      "label": "Mild Overweight Auto-Loading",
+      "applicant": {
+        "applicantId": "APP-1002",
+        "age": 35,
+        "bmi": 26.0,
+        "smoker": false,
+        "systolicBp": 125,
+        "sumAssured": 400000,
+        "medicalConditions": [],
+        "occupationClass": 2
+      },
+      "expectedV1": { "decision": "CLEAN", "basePremiumLoadingPct": 10, "triggeredRuleIds": ["RULE_MILD_OVERWEIGHT_CLEAN"] },
+      "expectedV2": { "decision": "CLEAN", "basePremiumLoadingPct": 10, "triggeredRuleIds": ["RULE_MILD_OVERWEIGHT_CLEAN"] }
+    },
+    {
+      "id": "CASE-03",
+      "label": "Senior Age Knock-out",
+      "applicant": {
+        "applicantId": "APP-1003",
+        "age": 70,
+        "bmi": 24.0,
+        "smoker": false,
+        "systolicBp": 130,
+        "sumAssured": 200000,
+        "medicalConditions": [],
+        "occupationClass": 1
+      },
+      "expectedV1": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_AGE_KNOCKOUT"] },
+      "expectedV2": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_AGE_KNOCKOUT"] }
+    },
+    {
+      "id": "CASE-04",
+      "label": "Unclean Metabolic Comorbidity",
+      "applicant": {
+        "applicantId": "APP-1004",
+        "age": 45,
+        "bmi": 29.5,
+        "smoker": true,
+        "systolicBp": 145,
+        "sumAssured": 1200000,
+        "medicalConditions": ["FATTY_LIVER", "HYPERTENSION_STAGE_1"],
+        "occupationClass": 2
+      },
+      "expectedV1": { "decision": "UNCLEAN", "basePremiumLoadingPct": 75, "triggeredRuleIds": ["RULE_BMI_COMORBIDITY", "RULE_BP_SMOKER_SYNERGY", "RULE_HIGH_SUM_ASSURED"] },
+      "expectedV2": { "decision": "UNCLEAN", "basePremiumLoadingPct": 75, "triggeredRuleIds": ["RULE_BMI_COMORBIDITY", "RULE_BP_SMOKER_SYNERGY", "RULE_HIGH_SUM_ASSURED"] }
+    },
+    {
+      "id": "CASE-05",
+      "label": "Elevated BP Smoker Synergy",
+      "applicant": {
+        "applicantId": "APP-1005",
+        "age": 50,
+        "bmi": 26.0,
+        "smoker": true,
+        "systolicBp": 150,
+        "sumAssured": 600000,
+        "medicalConditions": [],
+        "occupationClass": 3
+      },
+      "expectedV1": { "decision": "UNCLEAN", "basePremiumLoadingPct": 50, "triggeredRuleIds": ["RULE_BP_SMOKER_SYNERGY"] },
+      "expectedV2": { "decision": "UNCLEAN", "basePremiumLoadingPct": 50, "triggeredRuleIds": ["RULE_BP_SMOKER_SYNERGY"] }
+    },
+    {
+      "id": "CASE-06",
+      "label": "Extreme BMI Knock-out",
+      "applicant": {
+        "applicantId": "APP-1006",
+        "age": 40,
+        "bmi": 40.0,
+        "smoker": false,
+        "systolicBp": 130,
+        "sumAssured": 500000,
+        "medicalConditions": ["HYPERTENSION_STAGE_1"],
+        "occupationClass": 1
+      },
+      "expectedV1": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_EXTREME_BMI"] },
+      "expectedV2": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_EXTREME_BMI"] }
+    },
+    {
+      "id": "CASE-07",
+      "label": "Hypertensive Crisis (decline overrides referral)",
+      "applicant": {
+        "applicantId": "APP-1007",
+        "age": 55,
+        "bmi": 30.0,
+        "smoker": true,
+        "systolicBp": 185,
+        "sumAssured": 1200000,
+        "medicalConditions": ["FATTY_LIVER"],
+        "occupationClass": 2
+      },
+      "expectedV1": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_HYPERTENSIVE_CRISIS", "RULE_BMI_COMORBIDITY", "RULE_HIGH_SUM_ASSURED"] },
+      "expectedV2": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_HYPERTENSIVE_CRISIS", "RULE_BMI_COMORBIDITY", "RULE_HIGH_SUM_ASSURED"] }
+    },
+    {
+      "id": "CASE-08",
+      "label": "Under-age Knock-out",
+      "applicant": {
+        "applicantId": "APP-1008",
+        "age": 16,
+        "bmi": 22.0,
+        "smoker": false,
+        "systolicBp": 110,
+        "sumAssured": 100000,
+        "medicalConditions": [],
+        "occupationClass": 1
+      },
+      "expectedV1": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_AGE_KNOCKOUT"] },
+      "expectedV2": { "decision": "DECLINE", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_AGE_KNOCKOUT"] }
+    },
+    {
+      "id": "CASE-09",
+      "label": "Class 4 Occupation (CLEAN under v1, UNCLEAN under onboarded v2)",
+      "applicant": {
+        "applicantId": "APP-1009",
+        "age": 40,
+        "bmi": 23.0,
+        "smoker": false,
+        "systolicBp": 120,
+        "sumAssured": 600000,
+        "medicalConditions": [],
+        "occupationClass": 4
+      },
+      "expectedV1": { "decision": "CLEAN", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_STANDARD_CLEAN"] },
+      "expectedV2": { "decision": "UNCLEAN", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_HIGH_RISK_OCCUPATION"] }
+    },
+    {
+      "id": "CASE-10",
+      "label": "Senior Multi-Morbidity (CLEAN under v1, UNCLEAN under onboarded v2)",
+      "applicant": {
+        "applicantId": "APP-1010",
+        "age": 60,
+        "bmi": 24.0,
+        "smoker": false,
+        "systolicBp": 130,
+        "sumAssured": 400000,
+        "medicalConditions": ["DIABETES_TYPE_2", "HYPERTENSION_STAGE_1"],
+        "occupationClass": 2
+      },
+      "expectedV1": { "decision": "CLEAN", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_STANDARD_CLEAN"] },
+      "expectedV2": { "decision": "UNCLEAN", "basePremiumLoadingPct": 0, "triggeredRuleIds": ["RULE_SENIOR_MULTI_MORBIDITY"] }
+    }
+  ]
+}

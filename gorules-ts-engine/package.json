@@ -1,0 +1,26 @@
+{
+  "name": "gorules-ts-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Headless GoRules (zen-engine) underwriting engine + migration/parity tooling + AI copilot",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "migrate": "tsx src/tools/astToJdmMigrator.ts",
+    "migrate:llm": "tsx src/tools/astToJdmMigrator.ts --llm-prompt",
+    "verify-parity": "tsx src/tools/parityVerifier.ts",
+    "selftest": "tsx src/tests/engineSelfTest.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@gorules/zen-engine": "^2.1.7",
+    "fastify": "^5.12.7",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2"
+  }
+}
