@@ -38,6 +38,13 @@ body {
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+  color: #ffffff;
+}
+
+/* jdm-editor ships a global .toolbar style with dark text; keep ours readable */
+.app .toolbar,
+.toolbar .title {
+  color: #ffffff;
 }
 
 .toolbar .title {
@@ -87,6 +94,7 @@ button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
   width: 380px;
   border-left: 1px solid var(--border);
   background: var(--panel);
+  color: #ffffff;
   padding: 16px;
   overflow-y: auto;
   display: flex;
@@ -102,6 +110,13 @@ button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
   border-radius: 8px;
   padding: 12px;
   background: var(--panel-2);
+}
+
+/* jdm-editor ships a global .section style with dark text; keep drawer content readable */
+.drawer .section,
+.drawer .result-row,
+.drawer .copilot .field {
+  color: #ffffff;
 }
 
 .result-row { display: flex; justify-content: space-between; font-size: 13px; margin: 4px 0; }
