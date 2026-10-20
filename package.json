@@ -13,6 +13,7 @@
     "ui": "npm run dev -w gorules-admin-ui",
     "migrate": "npm run migrate -w gorules-ts-engine",
     "migrate:llm": "npm run migrate:llm -w gorules-ts-engine",
+    "gen:xlsx": "npm run gen:xlsx -w gorules-ts-engine",
     "verify-parity": "npm run verify-parity -w gorules-ts-engine",
     "selftest": "npm run selftest -w gorules-ts-engine",
     "build": "npm run build -w gorules-admin-ui"

@@ -1,11 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ZenEngine, type ZenDecision } from '@gorules/zen-engine';
-import type { ApplicantRequest, UnderwritingCoreResult } from '../types';
+import type { ApplicantRequest, UnderwritingEnvelope } from '../types';
 
 // shared/ lives at the repository root, two levels above this package's src/.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 export const RULES_DIR = path.join(REPO_ROOT, 'shared', 'rules');
+
+// The stage-2 "Risk Assessment" table is the onboarding/upload target in every graph.
+export const STEP2_NODE_ID = 'node-step2-risk-assessment';
 
 export interface RuleSummary {
   id: string;
@@ -14,7 +17,7 @@ export interface RuleSummary {
 }
 
 export interface EvaluateOutcome {
-  result: UnderwritingCoreResult;
+  result: UnderwritingEnvelope;
   trace: unknown;
   executionTimeMs: number;
   activeRuleId: string;
@@ -74,8 +77,13 @@ export class UwEngine {
     return UwEngine.discoverRuleIds().map((id) => ({
       id,
       fileName: `${id}.json`,
-      ruleCount: this.readRaw(id).nodes.find((n: any) => n.type === 'decisionTableNode')?.content?.rules?.length ?? 0,
+      ruleCount: UwEngine.step2RuleCount(this.readRaw(id)),
     }));
+  }
+
+  static step2RuleCount(jdm: any): number {
+    const table = (jdm?.nodes ?? []).find((n: any) => n.id === STEP2_NODE_ID) ?? (jdm?.nodes ?? []).find((n: any) => n.type === 'decisionTableNode');
+    return table?.content?.rules?.length ?? 0;
   }
 
   getActiveId(): string {
@@ -106,19 +114,20 @@ export class UwEngine {
     return {
       id,
       fileName: `${id}.json`,
-      ruleCount: (jdm as any).nodes.find((n: any) => n.type === 'decisionTableNode')?.content?.rules?.length ?? 0,
+      ruleCount: UwEngine.step2RuleCount(jdm),
     };
   }
 
-  /** Create a brand-new rule version by cloning an existing one and appending rows. */
+  /** Create a brand-new rule version by cloning an existing one and appending stage-2 rows. */
   onboard(
     sourceId: string,
     newId: string,
     extraRows: unknown[],
+    targetNodeId: string = STEP2_NODE_ID,
   ): { id: string; ruleCount: number } {
     const base = this.readRaw(sourceId);
-    const table = base.nodes.find((n: any) => n.type === 'decisionTableNode');
-    if (!table) throw new Error(`Source rule ${sourceId} has no decision table node`);
+    const table = base.nodes.find((n: any) => n.id === targetNodeId);
+    if (!table) throw new Error(`Source rule ${sourceId} has no node ${targetNodeId}`);
     table.content.rules = [...(table.content.rules ?? []), ...extraRows];
     const summary = this.saveRule(newId, base);
     return { id: summary.id, ruleCount: summary.ruleCount };
@@ -136,13 +145,9 @@ export class UwEngine {
     const response = await decision.evaluate(payload, { trace: true });
     const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
 
-    const result = response.result as UnderwritingCoreResult;
+    const result = response.result as UnderwritingEnvelope;
     return {
-      result: {
-        decision: result.decision,
-        basePremiumLoadingPct: result.basePremiumLoadingPct,
-        triggeredRules: result.triggeredRules ?? [],
-      },
+      result,
       trace: response.trace ?? null,
       executionTimeMs: Number(elapsedMs.toFixed(3)),
       activeRuleId: id,

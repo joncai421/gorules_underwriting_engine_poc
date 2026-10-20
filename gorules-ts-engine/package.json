@@ -9,6 +9,7 @@
     "start": "tsx src/server.ts",
     "migrate": "tsx src/tools/astToJdmMigrator.ts",
     "migrate:llm": "tsx src/tools/astToJdmMigrator.ts --llm-prompt",
+    "gen:xlsx": "tsx src/tools/makeSampleXlsx.ts",
     "verify-parity": "tsx src/tools/parityVerifier.ts",
     "selftest": "tsx src/tests/engineSelfTest.ts"
   },
@@ -16,6 +17,7 @@
     "@fastify/cors": "^11.3.1",
     "@gorules/zen-engine": "^2.1.7",
     "fastify": "^5.12.7",
+    "xlsx": "^0.18.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -1,19 +1,37 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DecisionGraph } from '@gorules/jdm-editor';
-import { RefreshCw, Play, Save, Plus, Sparkles } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { RefreshCw, Play, Save, Plus, FileSpreadsheet, Sparkles } from 'lucide-react';
 import testCasesFile from '../../shared/test-cases.json';
 
 interface RuleSummary { id: string; fileName: string; ruleCount: number; }
+
 interface SimResult {
-  decision: 'CLEAN' | 'UNCLEAN' | 'DECLINE';
-  basePremiumLoadingPct: number;
-  triggeredRules: { ruleId: string; category: string; reason: string }[];
+  applicantId: string;
+  derivedMetrics: { bmi: number; incomeMultiple: number };
+  step1SufficientInfo: { isSufficient: boolean; missingDocuments: { docCode: string; reason: string }[] };
+  step2RiskAssessment: {
+    totalEmDebits: number;
+    exclusionCodes: string[];
+    hasDeclineTrigger: boolean;
+    hasPostponeTrigger: boolean;
+    hasComorbidityUncleanTrigger: boolean;
+    matchedAssessmentRules: { ruleId: string; outcome: string; debits: number; reason: string }[];
+  };
+  step3RiskClassification: { riskClass: string; actuarialTableRating: string; loadingPct: number };
+  step4UnderwritingDecision: {
+    finalDecision: string;
+    isUncleanReferral: boolean;
+    loadingPct: number;
+    exclusions: string[];
+    requestedAdditionalInfo: { docCode: string }[];
+  };
   executionTimeMs: number;
   trace?: any;
   aiCopilotBrief?: {
+    caseType: string;
     riskSummary: string;
-    recommendedAction: string;
-    requiredEvidence: string[];
+    recommendedDisposition: string;
     manualGuidelineRef: string;
     generatedBy?: string;
   };
@@ -24,6 +42,22 @@ const TEST_CASES = (testCasesFile as any).cases as {
   label: string;
   applicant: any;
 }[];
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.onload = () => {
+      const bytes = new Uint8Array(reader.result as ArrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      }
+      resolve(btoa(binary));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
 
 export default function App() {
   const [rules, setRules] = useState<RuleSummary[]>([]);
@@ -37,10 +71,11 @@ export default function App() {
 
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ msg: string; err?: boolean }>({ msg: '' });
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   const flash = (msg: string, err = false) => {
     setStatus({ msg, err });
-    setTimeout(() => setStatus((s) => (s.msg === msg ? { msg: '' } : s)), 4000);
+    setTimeout(() => setStatus((s) => (s.msg === msg ? { msg: '' } : s)), 5000);
   };
 
   const loadRules = useCallback(async () => {
@@ -89,9 +124,33 @@ export default function App() {
       if (data.error) throw new Error(data.error);
       await loadRules();
       await loadRule('v2-onboarded-rules');
-      flash(`Onboarded 2 rules -> v2-onboarded-rules (${data.onboarded.ruleCount} total rows)`);
+      flash(`Onboarded RA_OCCUPATION_CLASS_4 + avocation rule -> v2-onboarded-rules (${data.onboarded.ruleCount} stage-2 rows)`);
     } catch (e: any) {
       flash(`Onboarding failed: ${e.message}`, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onExcelUpload(file: File) {
+    setBusy(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await fetch('/api/rules/upload-excel', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, base64, ruleId: editingId }),
+      });
+      const data: any = await res.json();
+      if (data.error) throw new Error(data.error);
+      setJdm(data.jdm);
+      await loadRules();
+      // Local parse just to report the row count of the workbook we imported.
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const rowCount = data.uploaded?.rowCount ?? 0;
+      flash(`Imported ${file.name} (${wb.SheetNames[0]}, ${rowCount} rows) into ${editingId} stage-2 table`);
+    } catch (e: any) {
+      flash(`Excel upload failed: ${e.message}`, true);
     } finally {
       setBusy(false);
     }
@@ -136,20 +195,18 @@ export default function App() {
     }
   }
 
+  const decision = sim?.step4UnderwritingDecision?.finalDecision;
+
   return (
     <div className="app">
       <div className="toolbar">
         <span className="title">Underwriting Rule Studio</span>
         <span className="badge">active: {activeId || '-'}</span>
 
-        <select
-          value={editingId}
-          onChange={(e) => loadRule(e.target.value)}
-          aria-label="Rule version"
-        >
+        <select value={editingId} onChange={(e) => loadRule(e.target.value)} aria-label="Rule version">
           {rules.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.id} ({r.ruleCount} rules)
+              {r.id} ({r.ruleCount} stage-2 rules)
             </option>
           ))}
         </select>
@@ -158,9 +215,24 @@ export default function App() {
           <RefreshCw size={14} /> Reload
         </button>
 
-        <button className="icon-btn" onClick={onOnboard} disabled={busy} title="Inject onboarded occupation / senior rules">
-          <Plus size={14} /> Onboard New Rule (Occupation Class 4 &amp; Smoker Surcharge)
+        <button className="icon-btn" onClick={onOnboard} disabled={busy} title="Append stage-2 occupation / avocation rules">
+          <Plus size={14} /> 1-Click Onboard New Rule (Hazardous Occupation Class 4)
         </button>
+
+        <button className="icon-btn" onClick={() => excelInputRef.current?.click()} disabled={busy} title="Import an Excel decision table">
+          <FileSpreadsheet size={14} /> Upload Excel (Decision Table)
+        </button>
+        <input
+          ref={excelInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onExcelUpload(f);
+            e.target.value = '';
+          }}
+        />
 
         <span className="spacer" />
 
@@ -180,7 +252,7 @@ export default function App() {
 
         <aside className="drawer">
           <h2>Live Simulator</h2>
-          <span className="muted">Preset applicants from shared/test-cases.json</span>
+          <span className="muted">12 canonical applicants from shared/test-cases.json</span>
 
           <select value={selectedCaseId} onChange={(e) => setSelectedCaseId(e.target.value)}>
             {TEST_CASES.map((c) => (
@@ -197,46 +269,95 @@ export default function App() {
           {status.msg && <div className={`status${status.err ? ' err' : ''}`}>{status.msg}</div>}
 
           {sim && (
-            <div className="section">
-              <div className="result-row">
-                <span>Decision</span>
-                <span className={`pill ${sim.decision}`}>{sim.decision}</span>
+            <>
+              <div className="section">
+                <div className="result-row">
+                  <span>Stage 0 · Derived metrics</span>
+                  <span>BMI {sim.derivedMetrics.bmi} · Multiple {sim.derivedMetrics.incomeMultiple}x</span>
+                </div>
+                <div className="result-row">
+                  <span>Exec time</span>
+                  <span>{sim.executionTimeMs}ms</span>
+                </div>
               </div>
-              <div className="result-row">
-                <span>Base Loading</span>
-                <span>+{sim.basePremiumLoadingPct}%</span>
+
+              <div className="section">
+                <div className="result-row">
+                  <span>Step 1 · Sufficient info?</span>
+                  <span>{sim.step1SufficientInfo.isSufficient ? 'YES' : 'NO'}</span>
+                </div>
+                {sim.step1SufficientInfo.missingDocuments.length > 0 && (
+                  <ul className="rule-list">
+                    {sim.step1SufficientInfo.missingDocuments.map((d) => (
+                      <li key={d.docCode}>
+                        <span className="rid">{d.docCode}</span>
+                        <span className="rsub">{d.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <div className="result-row">
-                <span>Exec time</span>
-                <span>{sim.executionTimeMs}ms</span>
+
+              <div className="section">
+                <div className="result-row">
+                  <span>Step 2 · Total EM debits</span>
+                  <span>{sim.step2RiskAssessment.totalEmDebits}</span>
+                </div>
+                <div className="result-row">
+                  <span>Exclusions</span>
+                  <span>{sim.step2RiskAssessment.exclusionCodes.join(', ') || '-'}</span>
+                </div>
+                <ul className="rule-list">
+                  {sim.step2RiskAssessment.matchedAssessmentRules.map((m) => (
+                    <li key={m.ruleId}>
+                      <span className="rid">{m.ruleId} (+{m.debits})</span>
+                      <span className="rsub">{m.outcome} — {m.reason}</span>
+                    </li>
+                  ))}
+                  {sim.step2RiskAssessment.matchedAssessmentRules.length === 0 && (
+                    <li><span className="rsub">No risk debits collected</span></li>
+                  )}
+                </ul>
               </div>
-              <ul className="rule-list">
-                {sim.triggeredRules.map((r) => (
-                  <li key={r.ruleId}>
-                    <span className="rid">{r.ruleId}</span>
-                    <span className="rsub">{r.category} — {r.reason}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+
+              <div className="section">
+                <div className="result-row">
+                  <span>Step 3 · Risk class</span>
+                  <span>{sim.step3RiskClassification.riskClass}</span>
+                </div>
+                <div className="result-row">
+                  <span>Actuarial rating</span>
+                  <span>{sim.step3RiskClassification.actuarialTableRating}</span>
+                </div>
+              </div>
+
+              <div className="section">
+                <div className="result-row">
+                  <span>Step 4 · Decision</span>
+                  <span className={`pill ${decision ?? ''}`}>{decision}</span>
+                </div>
+                <div className="result-row">
+                  <span>Loading</span>
+                  <span>+{sim.step4UnderwritingDecision.loadingPct}%</span>
+                </div>
+                <div className="result-row">
+                  <span>Unclean referral</span>
+                  <span>{String(sim.step4UnderwritingDecision.isUncleanReferral)}</span>
+                </div>
+              </div>
+            </>
           )}
 
-          {sim && sim.decision === 'UNCLEAN' && sim.aiCopilotBrief && (
+          {sim?.aiCopilotBrief && (
             <div className="copilot">
-              <h3><Sparkles size={14} /> AI Copilot Assessment</h3>
+              <h3><Sparkles size={14} /> AI Copilot · {sim.aiCopilotBrief.caseType}</h3>
               <div className="field">
                 <div className="label">Risk Summary</div>
                 <div>{sim.aiCopilotBrief.riskSummary}</div>
               </div>
               <div className="field">
-                <div className="label">Recommended Action</div>
-                <div>{sim.aiCopilotBrief.recommendedAction}</div>
-              </div>
-              <div className="field">
-                <div className="label">Required Evidence</div>
-                <ul className="evidence">
-                  {sim.aiCopilotBrief.requiredEvidence.map((e) => <li key={e}>{e}</li>)}
-                </ul>
+                <div className="label">Recommended Disposition</div>
+                <div>{sim.aiCopilotBrief.recommendedDisposition}</div>
               </div>
               <div className="field">
                 <div className="label">Guideline Ref</div>

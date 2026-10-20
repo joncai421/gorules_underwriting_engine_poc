@@ -1,41 +1,44 @@
-import type { AiCopilotBrief, ApplicantRequest, TriggeredRule } from '../types';
+import type { AiCopilotBrief, ApplicantRequest, UnderwritingEnvelope } from '../types';
 
 /**
  * Snapshot of what actually fired inside the GoRules graph, extracted from the raw
- * execution trace. Used as grounding context for the copilot brief so the narrative
- * is anchored to the concrete matched rows rather than a generic template.
+ * execution trace. Grounds the copilot narrative in the concrete matched rows rather
+ * than a generic template.
  */
 export interface TraceSnapshot {
   matchedRuleIds: string[];
+  missingDocCodes: string[];
   matchedRows: Record<string, unknown>[];
   inputSnapshot: Record<string, unknown>;
 }
 
 /**
- * Parses the zen-engine trace object (`Record<nodeId, ZenEngineTrace>`) to recover the
- * exact decision-table rows and input field snapshots that produced the UNCLEAN referral.
- *
- * The decision table node emits its matched rows as an array under `output`; we scan all
- * traced nodes for such arrays whose elements carry a `ruleId`, which keeps this resilient
- * to node-id changes or the editor wiring a different aggregator table.
+ * Parses the zen-engine trace (`Record<nodeId, ZenEngineTrace>`) to recover the exact
+ * stage-2 assessment rows, stage-1 missing documents, and the input field snapshot.
+ * With `outputPath` + `passThrough`, each traced node's `output` carries the merged
+ * context, so we scan every traced node for the keyed arrays we care about.
  */
 export function extractMatchedNodesFromTrace(trace: unknown): TraceSnapshot {
-  const snapshot: TraceSnapshot = { matchedRuleIds: [], matchedRows: [], inputSnapshot: {} };
+  const snapshot: TraceSnapshot = { matchedRuleIds: [], missingDocCodes: [], matchedRows: [], inputSnapshot: {} };
   if (!trace || typeof trace !== 'object') return snapshot;
 
   for (const nodeTrace of Object.values(trace as Record<string, any>)) {
     const output = nodeTrace?.output;
-    const rows = Array.isArray(output) ? output : output ? [output] : [];
-    const ruleRows = rows.filter((r: any) => r && typeof r === 'object' && typeof r.ruleId === 'string');
-    if (ruleRows.length > 0) {
-      for (const row of ruleRows) {
-        if (!snapshot.matchedRuleIds.includes(row.ruleId)) {
+    if (Array.isArray(output?.assessmentMatches)) {
+      for (const row of output.assessmentMatches) {
+        if (row?.ruleId && !snapshot.matchedRuleIds.includes(row.ruleId)) {
           snapshot.matchedRuleIds.push(row.ruleId);
           snapshot.matchedRows.push(row);
         }
       }
     }
-    // The input node carries the original request field snapshot.
+    if (Array.isArray(output?.missingInfoMatches)) {
+      for (const row of output.missingInfoMatches) {
+        if (row?.missingDoc && !snapshot.missingDocCodes.includes(row.missingDoc)) {
+          snapshot.missingDocCodes.push(row.missingDoc);
+        }
+      }
+    }
     if (nodeTrace?.input && typeof nodeTrace.input === 'object' && !snapshot.inputSnapshot.applicantId) {
       snapshot.inputSnapshot = nodeTrace.input;
     }
@@ -43,132 +46,163 @@ export function extractMatchedNodesFromTrace(trace: unknown): TraceSnapshot {
   return snapshot;
 }
 
-// Mini embedded medical underwriting manual, keyed by rule id, used by the deterministic
-// generator and injected as reference knowledge into the live LLM prompt.
-const GUIDELINE_LIBRARY: Record<string, { evidence: string[]; manual: string }> = {
-  RULE_BMI_COMORBIDITY: {
-    evidence: ['Liver ultrasound within 6 months', 'HbA1c lab report', 'Fasting lipid profile'],
-    manual: 'Reinsurance Medical Manual Sec 4.2 - Metabolic Syndrome',
+// Mini embedded reinsurance guideline library, keyed by rule / doc code. Used by the
+// deterministic generator and injected as reference knowledge into the live LLM prompt.
+const RULE_GUIDELINES: Record<string, { evidence: string[]; manual: string }> = {
+  RA_OBESITY_CLASS_1: {
+    evidence: ['HbA1c lab report', 'Fasting lipid profile'],
+    manual: 'Swiss Re / Munich Re Life Manual Sec 4.2: Metabolic Syndrome & Hepatic Steatosis',
   },
-  RULE_BP_SMOKER_SYNERGY: {
+  RA_METABOLIC_COMORBIDITY: {
+    evidence: ['Liver ultrasound within 6 months', 'HbA1c lab report'],
+    manual: 'Swiss Re / Munich Re Life Manual Sec 4.2: Metabolic Syndrome & Hepatic Steatosis',
+  },
+  RA_SMOKER_BP_SYNERGY: {
     evidence: ['Resting ECG', 'Repeat ambulatory BP monitoring (7-day)', 'Cardiac risk score (SCORE2)'],
-    manual: 'Reinsurance Medical Manual Sec 3.7 - Cardiovascular Risk in Smokers',
+    manual: 'Swiss Re Life Manual Sec 3.7: Cardiovascular Risk in Smokers',
   },
-  RULE_HIGH_SUM_ASSURED: {
-    evidence: ['Financial net-worth statement', 'Source-of-wealth documentation', 'Senior underwriter sign-off memo'],
-    manual: 'Financial Underwriting Manual Sec 2.1 - Non-Medical Limits & Sum Assured',
+  RA_HYPERTENSION_S1: { evidence: ['Repeat ambulatory BP monitoring (7-day)'], manual: 'Reinsurance Medical Manual Sec 3.5: Hypertension Rating' },
+  RA_HYPERTENSION_S2: { evidence: ['Resting ECG', 'Echocardiogram if ECG abnormal'], manual: 'Reinsurance Medical Manual Sec 3.6: Stage 2 Hypertension' },
+  RA_MILD_OVERWEIGHT: { evidence: ['Standard paramedical report'], manual: 'Reinsurance Medical Manual Sec 4.1: Overweight Standard Loading' },
+  RA_BENIGN_THYROID: { evidence: ['Thyroid ultrasound (TI-RADS classification)', 'Latest TSH result'], manual: 'Reinsurance Medical Manual Sec 5.3: Thyroid Nodules & Exclusion Riders' },
+  RA_RECENT_SURGERY: { evidence: ['Discharge summary', 'Surgeon progress notes >= 6 months post-op'], manual: 'Reinsurance Operations Manual Sec 2.4: Post-Surgery Deferral' },
+  RA_OCCUPATION_CLASS_4: { evidence: ['Occupational questionnaire (Class 4)', 'Hazard exposure declaration'], manual: 'Occupational Underwriting Manual Sec 5.4: Hazardous Classes' },
+  RA_AVOCATION_EXTREME_SPORT: { evidence: ['Extreme hobby questionnaire', 'Activity frequency declaration'], manual: 'Avocation Underwriting Manual Sec 7.2: Adventure Sports' },
+  RA_AGE_KNOCKOUT: { evidence: [], manual: 'Eligibility Guidelines Sec 1.1: Insurable Age Range' },
+  RA_BP_CRISIS: { evidence: [], manual: 'Reinsurance Medical Manual Sec 3.6: Hypertensive Crisis' },
+  RA_EXTREME_BMI: { evidence: [], manual: 'Reinsurance Medical Manual Sec 4.3: Morbid Obesity Knock-out' },
+  RA_FINANCIAL_OVERINSURED: { evidence: [], manual: 'Financial Underwriting Manual Sec 2.1: Income Replacement Limits' },
+};
+
+const DOC_GUIDELINES: Record<string, { why: string; manual: string }> = {
+  FINANCIAL_QUESTIONNAIRE: {
+    why: 'signed Financial Questionnaire is required to verify insurable interest and source of premium',
+    manual: 'Financial Underwriting Manual Sec 2.1: Non-Medical Limits & Sum Assured',
   },
-  RULE_HIGH_RISK_OCCUPATION: {
-    evidence: ['Occupational questionnaire (Class 4)', 'Hazard exposure declaration'],
-    manual: 'Occupational Underwriting Manual Sec 5.4 - Hazardous Classes',
+  LIVER_ULTRASOUND: {
+    why: 'liver ultrasound is required to rule out steatohepatitis before rating metabolic findings',
+    manual: 'Swiss Re / Munich Re Life Manual Sec 4.2: Metabolic Syndrome & Hepatic Steatosis',
   },
-  RULE_SENIOR_MULTI_MORBIDITY: {
-    evidence: ['Attending Physician Statement (APS)', 'Current medication list', 'Recent specialist letters'],
-    manual: 'Reinsurance Medical Manual Sec 6.1 - Multi-Morbidity in Seniors',
+  RESTING_ECG: {
+    why: 'resting ECG is required for senior applicants at elevated sum assured to exclude subclinical cardiac disease',
+    manual: 'Reinsurance Medical Manual Sec 3.5: Cardiovascular Screening Thresholds',
   },
 };
 
 export interface UnderwritingAiCopilot {
-  analyzeUncleanCase(
-    applicant: ApplicantRequest,
-    triggeredRules: TriggeredRule[],
-    traceSnapshot: TraceSnapshot,
-  ): Promise<AiCopilotBrief>;
+  analyze(envelope: UnderwritingEnvelope, applicant: ApplicantRequest, traceSnapshot: TraceSnapshot): Promise<AiCopilotBrief>;
+}
+
+function evidenceForRule(ruleId: string): string[] {
+  return RULE_GUIDELINES[ruleId]?.evidence ?? [];
+}
+
+function manualsFor(codes: string[]): string[] {
+  return [...new Set(codes.map((c) => RULE_GUIDELINES[c]?.manual).filter(Boolean) as string[])];
 }
 
 /**
- * Deterministic fallback generator. Inspects the matched rules + trace snapshot and
- * synthesizes a context-aware brief that explains how the combined rules interact.
- * This is the default when no LLM API key is configured, guaranteeing zero-latency
- * offline demos while still producing realistic, rule-grounded output.
+ * Mode A - Step 1.1 assistant: drafts the structured agent/customer follow-up request
+ * explaining WHY each missing document is required given the applicant's own metrics.
  */
-function buildDeterministicBrief(
-  applicant: ApplicantRequest,
-  triggeredRules: TriggeredRule[],
-  snapshot: TraceSnapshot,
-): AiCopilotBrief {
-  const ids = triggeredRules.map((r) => r.ruleId);
-  const requiredEvidence = Array.from(
-    new Set(ids.flatMap((id) => GUIDELINE_LIBRARY[id]?.evidence ?? [])),
-  );
-  const manualRefs = Array.from(
-    new Set(ids.flatMap((id) => GUIDELINE_LIBRARY[id]?.manual ?? [])),
-  );
-
-  const vitals = `age ${applicant.age}, BMI ${applicant.bmi}, systolic BP ${applicant.systolicBp}, ${
-    applicant.smoker ? 'current smoker' : 'non-smoker'
-  }, sum assured ${applicant.sumAssured.toLocaleString()}`;
-
-  const riskSummary =
-    `${applicant.applicantId} was referred (UNCLEAN) by ${ids.length} rule(s): ` +
-    `${ids.join(', ')}. Applicant profile (${vitals}). ` +
-    (ids.length > 1
-      ? 'These findings interact cumulatively, elevating combined morbidity/mortality risk beyond what any single factor implies.'
-      : 'This single referral factor requires targeted evidence before an automated decision can be issued.');
-
-  const recommendedAction =
-    `Route to a senior medical underwriter. Collect the listed evidence, then re-rate. ` +
-    `Current indicative loading from matched rules is driven by [${snapshot.matchedRuleIds.join(', ') || ids.join(', ')}].`;
-
+function buildEvidenceRequestBrief(envelope: UnderwritingEnvelope, applicant: ApplicantRequest): AiCopilotBrief {
+  const missing = envelope.step1SufficientInfo.missingDocuments;
+  const whyLines = missing.map((m) => {
+    const g = DOC_GUIDELINES[m.docCode];
+    return `${m.docCode}: ${g ? g.why : m.reason}`;
+  });
+  const metrics = `derived.bmi = ${envelope.derivedMetrics.bmi}, incomeMultiple = ${envelope.derivedMetrics.incomeMultiple}, sumAssured = ${applicant.sumAssured.toLocaleString()}, age = ${applicant.age}`;
   return {
-    riskSummary,
-    recommendedAction,
-    requiredEvidence: requiredEvidence.length > 0 ? requiredEvidence : ['Full proposal & paramedical report'],
-    manualGuidelineRef: manualRefs.join(' | ') || 'General Referral Guidelines',
+    caseType: 'REQUEST_ADDITIONAL_INFO',
+    riskSummary:
+      `Applicant ${applicant.applicantId} cannot be assessed yet (${metrics}). ` +
+      `The sufficiency gate flagged ${missing.length} outstanding evidence item(s): ${whyLines.join('; ')}.`,
+    recommendedDisposition:
+      `Send an evidence follow-up request to the agent for: ${missing.map((m) => m.docCode).join(', ')}. ` +
+      'Re-run underwriting automatically once documents are attached; do not rate the case until the gate passes.',
+    manualGuidelineRef: [...new Set(missing.map((m) => DOC_GUIDELINES[m.docCode]?.manual ?? 'General Evidence Guidelines'))].join(' | '),
     generatedBy: 'mock',
   };
 }
 
 /**
- * Live-mode prompt construction. Emits a structured instruction that a JSON-capable
- * LLM can follow, grounding it with the matched rows, the applicant snapshot and the
- * relevant mini-manual sections. Kept exported for the migration tool's prompt showcase.
+ * Mode B - Step 2 -> Step 4 referral copilot: explains how the collected debits
+ * interact and recommends a disposition among Accept With Loading / Exclusions / Postpone.
+ */
+function buildRiskAssessmentBrief(envelope: UnderwritingEnvelope, applicant: ApplicantRequest): AiCopilotBrief {
+  const s2 = envelope.step2RiskAssessment;
+  const s3 = envelope.step3RiskClassification;
+  const ids = s2.matchedAssessmentRules.map((m) => m.ruleId);
+  const requiredEvidence = [...new Set(ids.flatMap(evidenceForRule))];
+  const debitLines = s2.matchedAssessmentRules
+    .map((m) => `${m.ruleId} (+${m.debits} EM)`)
+    .join(', ');
+
+  const disposition =
+    s2.exclusionCodes.length > 0 && s3.riskClass === 'STANDARD_WITH_EXCLUSION'
+      ? `Confirm ACCEPT_WITH_EXCLUSIONS (${s2.exclusionCodes.join(', ')}) at standard rates`
+      : s3.riskClass.startsWith('SUBSTANDARD')
+        ? `Confirm ${envelope.step4UnderwritingDecision.finalDecision} (${s3.actuarialTableRating}) or request additional evidence to re-rate`
+        : `Confirm ${envelope.step4UnderwritingDecision.finalDecision}`;
+
+  return {
+    caseType: 'UNCLEAN_RISK_ASSESSMENT',
+    riskSummary:
+      `Applicant ${applicant.applicantId} (bmi ${envelope.derivedMetrics.bmi}, systolic BP ${applicant.systolicBp}, ` +
+      `${applicant.smoker ? 'smoker' : 'non-smoker'}) was referred with ${ids.length} interacting finding(s): ${debitLines}. ` +
+      `Combined EM debits ${s2.totalEmDebits} classified into ${s3.riskClass} (${s3.actuarialTableRating}).`,
+    recommendedDisposition:
+      `${disposition}. Required evidence before final sign-off: ${requiredEvidence.length ? requiredEvidence.join('; ') : 'attending physician statement (APS)'}.`,
+    manualGuidelineRef: manualsFor(ids).join(' | ') || 'General Referral Guidelines',
+    generatedBy: 'mock',
+  };
+}
+
+/**
+ * Live-mode prompt construction (also reused by the migrator's LLM prompt showcase
+ * pattern). Grounds a JSON-capable LLM in the matched rows + mini manual excerpts.
  */
 export function buildCopilotPrompt(
+  envelope: UnderwritingEnvelope,
   applicant: ApplicantRequest,
-  triggeredRules: TriggeredRule[],
   snapshot: TraceSnapshot,
 ): string {
+  const caseType = envelope.step4UnderwritingDecision.finalDecision === 'REQUEST_ADDITIONAL_INFO' ? 'REQUEST_ADDITIONAL_INFO' : 'UNCLEAN_RISK_ASSESSMENT';
   const context = {
+    caseType,
     applicant,
-    triggeredRules,
+    envelope,
     matchedRows: snapshot.matchedRows,
-    guidelineExcerpts: triggeredRules
-      .map((r) => GUIDELINE_LIBRARY[r.ruleId])
-      .filter(Boolean)
-      .map((g) => ({ manual: g.manual, requiredEvidence: g.evidence })),
+    guidelineExcerpts: Object.entries(RULE_GUIDELINES)
+      .filter(([id]) => snapshot.matchedRuleIds.includes(id))
+      .map(([, g]) => ({ manual: g.manual, requiredEvidence: g.evidence })),
   };
   return [
     'You are a senior life & health underwriting copilot.',
-    'Given the deterministic GoRules engine trace context below, produce a JSON object with keys:',
-    'riskSummary (string), recommendedAction (string), requiredEvidence (array of strings), manualGuidelineRef (string).',
+    'Given the deterministic GoRules engine envelope and trace context below, produce a JSON object with keys:',
+    'caseType (string), riskSummary (string), recommendedDisposition (string), manualGuidelineRef (string).',
     'Base every claim strictly on the provided rule matches and guideline excerpts; do not invent coverage terms.',
     'CONTEXT_JSON:' + JSON.stringify(context),
   ].join('\n');
 }
 
-/**
- * Attempts a real structured LLM call (OpenAI Chat Completions or Anthropic Messages)
- * using fetch, depending on which API key is configured. Returns null on any failure or
- * missing key so the caller can fall back to the deterministic brief.
- */
 async function tryLiveLlmBrief(
+  envelope: UnderwritingEnvelope,
   applicant: ApplicantRequest,
-  triggeredRules: TriggeredRule[],
   snapshot: TraceSnapshot,
 ): Promise<AiCopilotBrief | null> {
-  const prompt = buildCopilotPrompt(applicant, triggeredRules, snapshot);
+  const prompt = buildCopilotPrompt(envelope, applicant, snapshot);
   const openaiKey = process.env.OPENAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const schemaHint = {
     type: 'object',
     properties: {
+      caseType: { type: 'string' },
       riskSummary: { type: 'string' },
-      recommendedAction: { type: 'string' },
-      requiredEvidence: { type: 'array', items: { type: 'string' } },
+      recommendedDisposition: { type: 'string' },
       manualGuidelineRef: { type: 'string' },
     },
-    required: ['riskSummary', 'recommendedAction', 'requiredEvidence', 'manualGuidelineRef'],
+    required: ['caseType', 'riskSummary', 'recommendedDisposition', 'manualGuidelineRef'],
   };
 
   try {
@@ -219,19 +253,23 @@ async function tryLiveLlmBrief(
 }
 
 /**
- * Factory that selects the provider based on the environment.
- * Live LLM is used only when an API key is present; otherwise the deterministic,
- * rule-grounded generator keeps the demo fully offline and reproducible.
+ * Factory selecting the provider from the environment. Live LLM only when a key is
+ * present; otherwise deterministic, rule-grounded briefs keep the demo offline and
+ * reproducible. CLEAN/DECLINE cases never reach this code (zero LLM latency, 100%
+ * deterministic compliance) - the server only calls it when isUncleanReferral is true.
  */
 export function createCopilot(): UnderwritingAiCopilot {
   return {
-    async analyzeUncleanCase(applicant, triggeredRules, traceSnapshot) {
+    async analyze(envelope, applicant, traceSnapshot) {
+      const modeA = envelope.step4UnderwritingDecision.finalDecision === 'REQUEST_ADDITIONAL_INFO';
       const hasKey = Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
       if (hasKey) {
-        const live = await tryLiveLlmBrief(applicant, triggeredRules, traceSnapshot);
+        const live = await tryLiveLlmBrief(envelope, applicant, traceSnapshot);
         if (live) return live;
       }
-      return buildDeterministicBrief(applicant, triggeredRules, traceSnapshot);
+      return modeA
+        ? buildEvidenceRequestBrief(envelope, applicant)
+        : buildRiskAssessmentBrief(envelope, applicant);
     },
   };
 }
