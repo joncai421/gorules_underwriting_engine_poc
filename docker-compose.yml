@@ -9,7 +9,9 @@ services:
       POSTGRES_PASSWORD: uw_password
       POSTGRES_DB: uw_engine_db
     ports:
-      - "5432:5432"
+      # Host port is overridable via UW_DB_PORT so the demo can run alongside
+      # other local Postgres containers (defaults to 5432 for the documented quickstart).
+      - "${UW_DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

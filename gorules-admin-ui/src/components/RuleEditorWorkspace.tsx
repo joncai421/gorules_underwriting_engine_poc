@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DecisionGraph } from '@gorules/jdm-editor';
 import { RefreshCw, Play, Save, SendHorizonal, Check, X, FileSpreadsheet, CopyPlus, Sparkles, Undo2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import PipelineStageStrip from './PipelineStageStrip';
 import type { ReplayRequest } from './DecisionHistoryTab';
 import testCasesFile from '../../../shared/test-cases.json';
 import type { PipelineResponse, RuleGroup, RuleVersion } from '../apiTypes';
@@ -15,6 +16,9 @@ interface Props {
 }
 
 const TEST_CASES = (testCasesFile as any).cases as { id: string; label: string; applicant: any }[];
+
+/** A trace is only ever valid for the exact rule/version that produced it. */
+type TraceSource = { ruleKey: string; version: number; stage: 'fundamental' | 'product' };
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -45,7 +49,7 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
   const [productCode, setProductCode] = useState<'TERM_LIFE' | 'CRITICAL_ILLNESS'>('TERM_LIFE');
   const [selectedCaseId, setSelectedCaseId] = useState<string>(TEST_CASES[0].id);
   const [sim, setSim] = useState<PipelineResponse | null>(null);
-  const [trace, setTrace] = useState<any>(undefined);
+  const [simTrace, setSimTrace] = useState<{ src: TraceSource; trace: any } | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ msg: string; err?: boolean }>({ msg: '' });
@@ -88,8 +92,9 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
       setDetail(row);
       setJdm(row.jdmContent);
       setDirty(false);
-      setSim(null);
-      setTrace(undefined);
+      // The last run and its trace deliberately survive navigation: switching the canvas to the
+      // graph that decided an outcome is how the strip's "Open Stage A/B graph" action works.
+      // Highlighting is gated on provenance below, not on clearing it here.
     },
     [apiFetch],
   );
@@ -137,7 +142,8 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
         setRuleKey(replay.ruleKey);
         setVersion(replay.version);
         await loadVersionDetail(replay.ruleKey, replay.version);
-        setTrace(replay.trace);
+        // DecisionHistoryTab only ever replays `executionTrace.product`.
+        setSimTrace({ src: { ruleKey: replay.ruleKey, version: replay.version, stage: 'product' }, trace: replay.trace });
         flash(`Replaying persisted trace on ${replay.ruleKey} v${replay.version}`);
       } catch (e: any) {
         flash(`Replay failed: ${e.message}`, true);
@@ -249,6 +255,8 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
       });
       setJdm(data.saved.jdmContent);
       setDirty(false);
+      // An imported table rewrites the graph under a retained trace.
+      setSimTrace(null);
       await loadVersions(ruleKey, version);
       flash(`Imported ${file.name} (${data.uploaded.rowCount} stage-2 rows) into DRAFT v${version}`);
     });
@@ -262,12 +270,41 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
         body: JSON.stringify({ productCode, executionMode: 'SIMULATION', aiAssist: true, applicant: tc.applicant }),
       });
       setSim(data);
-      // Highlight the executed path: product trace when Stage B ran, else fundamental trace on the gate graph.
-      setTrace(data.haltedAtFundamental ? data.trace.fundamental : data.trace.product);
+      // Bind the trace to the rule/version that produced it. The fundamental and product graphs
+      // both use the node ids `node-input` and `node-output`, so feeding one stage's trace to the
+      // other's canvas lights up nodes on a graph that never executed.
+      setSimTrace(
+        data.haltedAtFundamental
+          ? {
+              src: { ruleKey: data.fundamental.ruleKey, version: data.fundamental.version, stage: 'fundamental' },
+              trace: data.trace.fundamental,
+            }
+          : {
+              src: { ruleKey: data.product!.ruleKey, version: data.product!.version, stage: 'product' },
+              trace: data.trace.product,
+            },
+      );
     });
   }
 
   const decision = sim?.step4UnderwritingDecision?.finalDecision ?? sim?.finalDecision;
+
+  // Highlight only when the canvas actually shows the graph that ran. Matching ruleKey + version is
+  // sufficient: the engine compiles only LIVE rows and governance forbids writing jdm_content on a
+  // LIVE row, so that version is immutable and cannot have been edited out from under the trace.
+  // (Deliberately not gated on `dirty` — the editor re-emits onChange when `value` is swapped
+  // programmatically, which would falsely suppress the highlight after an "Open Stage X graph" jump.)
+  const traceLive = !!simTrace && simTrace.src.ruleKey === ruleKey && simTrace.src.version === version;
+  const canvasTrace = traceLive ? simTrace!.trace : undefined;
+
+  // ZenEngine returns the node-id keyed map as `response.trace`, but jdm-editor reads
+  // `simulate.result.trace[nodeId]` (see Simulation / SimulationOk in @gorules/jdm-editor). The bare
+  // map never matched that selector, so every node trace resolved to null; re-wrap it.
+  // Only `result.trace` is ever read by the editor, so SimulationOk's unread snapshot/performance
+  // fields are intentionally omitted rather than fabricated; typed `any` like the trace payloads here.
+  // NOTE: this corrects the payload shape but is not sufficient on its own to make the editor paint a
+  // path overlay on the canvas — that still needs a separate fix; the strip wording stays factual.
+  const simulateProp: any = canvasTrace ? { result: { trace: canvasTrace } } : undefined;
 
   return (
     <>
@@ -367,12 +404,25 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
       </div>
 
       <div className="body">
-        <div className="graph-area">
-          {jdm ? (
-            <DecisionGraph value={jdm} onChange={(v: any) => { setJdm(v); setDirty(true); }} simulate={trace} disabled={editorReadOnly} />
-          ) : (
-            <div style={{ padding: 24, color: '#94a3b8' }}>Loading rule graph…</div>
-          )}
+        <div className="graph-col">
+          <PipelineStageStrip
+            sim={sim}
+            productCode={productCode}
+            viewing={ruleKey && version ? { ruleKey, version } : null}
+            traceSrc={simTrace?.src.stage ?? null}
+            traceLive={traceLive}
+            onOpenGraph={(key, ver) => {
+              setRuleKey(key);
+              setVersion(ver);
+            }}
+          />
+          <div className="graph-area">
+            {jdm ? (
+              <DecisionGraph value={jdm} onChange={(v: any) => { setJdm(v); setDirty(true); }} simulate={simulateProp} disabled={editorReadOnly} />
+            ) : (
+              <div style={{ padding: 24, color: '#94a3b8' }}>Loading rule graph…</div>
+            )}
+          </div>
         </div>
 
         <aside className="drawer">

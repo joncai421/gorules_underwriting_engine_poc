@@ -87,7 +87,16 @@ button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
 .graph-area {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   position: relative;
+}
+
+/* the rule canvas stacked under the pipeline strip */
+.graph-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .drawer {
@@ -298,6 +307,95 @@ button.withdraw { background: #475569; border-color: #475569; color: white; }
 .stage-badge.ok { background: var(--clean); }
 .stage-badge.bad { background: var(--decline); }
 .stage-badge.skip { background: #475569; }
+
+/* ---------------- PRD v3: two-tier pipeline strip rendered above the rule canvas ---------------- */
+
+.pipeline-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.pipeline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pipeline-head .label { margin-bottom: 0; }
+.pipeline-meta { font-size: 11px; color: var(--muted); }
+
+.pipeline-flow { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+
+.pstage {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid #475569;
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.pstage.ok { border-left-color: var(--clean); }
+.pstage.bad { border-left-color: var(--decline); }
+.pstage.ran { border-left-color: var(--accent); }
+.pstage.idle { opacity: 0.72; }
+.pstage.skipped { opacity: 0.45; }
+
+.pstage .tag { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; color: var(--muted); }
+.pstage .nm { font-size: 12px; font-weight: 700; color: #ffffff; font-family: ui-monospace, Consolas, monospace; }
+.pstage .role { font-size: 11px; color: var(--muted); }
+.pstage .pstage-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.pstage .verdict { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: #ffffff; }
+.pstage .pversion { font-size: 11px; color: var(--muted); }
+.pstage .oncanvas { font-size: 10px; color: #64748b; }
+.pstage .oncanvas.yes { color: var(--accent); font-weight: 700; }
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 132px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.gate em { font-style: normal; font-weight: 400; color: #64748b; }
+.gate.open { color: var(--clean); }
+.gate.blocked { color: var(--decline); }
+
+.pipeline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--decline);
+  background: rgba(220, 38, 38, 0.1);
+  color: #fecaca;
+}
+
+.pipeline-trace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.pipeline-trace.live { color: var(--accent); }
+.pipeline-trace.stale { color: var(--unclean); }
+.pipeline-strip code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: #cbd5e1;
+}
 
 /* ---------------- PRD v3: decision & audit tables ---------------- */
 
