@@ -401,6 +401,35 @@ async function main() {
     },
   );
 
+  // Soft delete: mark a version WITHDRAWN (rows are never hard-deleted so audit references
+  // stay meaningful and version numbers are never reused). Maker roles withdraw drafts &
+  // submissions; retiring an ARCHIVED version is a checker action.
+  app.post<{ Params: { ruleKey: string; version: string }; Body: { comment?: string } }>(
+    '/api/rules/:ruleKey/versions/:version/withdraw',
+    { preHandler: requireRole([...AUTHOR_ROLES, ...APPROVER_ROLES]) },
+    async (req, reply) => {
+      try {
+        const actor = user(req);
+        const version = parseVersion(req.params.version);
+        const target = await ruleRepo.getRuleVersion(req.params.ruleKey, version);
+        const allowed =
+          actor.role === 'ADMIN' ||
+          (target.status === 'ARCHIVED' ? actor.role === 'RULE_APPROVER' : actor.role === 'RULE_AUTHOR');
+        if (!allowed) {
+          reply.code(403);
+          return {
+            error: `Forbidden: role ${actor.role} cannot withdraw a ${target.status} version (${target.status === 'ARCHIVED' ? 'requires RULE_APPROVER or ADMIN' : 'requires RULE_AUTHOR or ADMIN'})`,
+          };
+        }
+        const withdrawn = await ruleRepo.withdrawVersion(req.params.ruleKey, version, actor, req.body?.comment);
+        return { withdrawn: { ...withdrawn, jdmContent: undefined } };
+      } catch (err: any) {
+        reply.code(err instanceof RuleGovernanceError ? err.status : 500);
+        return { error: err.message };
+      }
+    },
+  );
+
   // ---------------------------------------------------------------- Persisted decisions (Req 4)
   app.get<{ Querystring: { productCode?: string; finalDecision?: string; limit?: string } }>(
     '/api/decisions',

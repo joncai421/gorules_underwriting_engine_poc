@@ -52,6 +52,7 @@ STAGE B: PER-PRODUCT RULE (LIVE product rule for req.productCode, 4-stage JDM gr
 │   ├── db/
 │   │   ├── migrations/001_init_schema.sql        # users, rule_definitions, audit logs, decisions
 │   │   ├── migrations/002_seed_initial_data.sql  # default RBAC users
+│   │   ├── migrations/003_soft_delete_withdrawn.sql # adds WITHDRAWN lifecycle state
 │   │   ├── migrate.ts                            # schema_migrations-tracked runner
 │   │   └── seed.ts                               # seed-rules/*.json -> rule_definitions v1 LIVE
 │   └── src/
@@ -108,11 +109,21 @@ all governance read/mutation endpoints require a `Authorization: Bearer <JWT>` t
 [Clone from LIVE] -> DRAFT --submit--> PENDING_APPROVAL --approve--> LIVE --superseded--> ARCHIVED
                        ^                       |                        (self-approval blocked
                        +------edit-------------+--reject--> REJECTED     for non-ADMIN)
+
+soft delete (any lifecycle state except LIVE):  *  --withdraw-->  WITHDRAWN  (row kept forever)
 ```
+
+**Soft delete & version numbering:** rule records are never hard-deleted — withdrawing a
+version only marks it `WITHDRAWN`, so its version number stays permanently consumed. New draft
+numbers are always `max(existing versions)+1` across ALL states (LIVE/ARCHIVED/REJECTED/WITHDRAWN),
+so a number that appears in the audit trail is never reused and never points at a vanished row.
+Withdrawing a DRAFT/REJECTED/PENDING_APPROVAL version is a maker (`RULE_AUTHOR`/`ADMIN`) action;
+retiring an ARCHIVED version is a checker (`RULE_APPROVER`/`ADMIN`) action; the LIVE version can
+only be replaced via approval.
 
 Every transition appends an immutable row to `rule_audit_logs`
 (`CREATED_DRAFT`, `UPDATED_DRAFT`, `SUBMITTED_FOR_APPROVAL`, `APPROVED_TO_LIVE`, `REJECTED`,
-`ARCHIVED`, `EXCEL_IMPORTED`). Approval runs in a single PostgreSQL transaction (demote old
+`ARCHIVED`, `EXCEL_IMPORTED`, `WITHDRAWN`). Approval runs in a single PostgreSQL transaction (demote old
 LIVE → ARCHIVED, promote the submitted version → LIVE) and then invalidates the engine's
 compiled `ZenEngine` decision cache, so the next underwriting call uses the new LIVE version.
 
@@ -131,6 +142,7 @@ compiled `ZenEngine` decision cache, so the next underwriting call uses the new 
 | POST | `/api/rules/:ruleKey/versions/:version/submit` | AUTHOR/ADMIN | DRAFT -> PENDING_APPROVAL |
 | POST | `/api/rules/:ruleKey/versions/:version/approve` | APPROVER/ADMIN | PENDING_APPROVAL -> LIVE (maker-checker guard, transaction, cache invalidation) |
 | POST | `/api/rules/:ruleKey/versions/:version/reject` | APPROVER/ADMIN | PENDING_APPROVAL -> REJECTED (mandatory `reviewComment`) |
+| POST | `/api/rules/:ruleKey/versions/:version/withdraw` | AUTHOR/ADMIN (drafts & submissions), APPROVER/ADMIN (ARCHIVED) | Soft delete -> WITHDRAWN (never hard-deleted; LIVE cannot be withdrawn) |
 | POST | `/api/rules/:ruleKey/upload-excel` | AUTHOR/ADMIN | `.xlsx` -> stage-2 rows of a DRAFT (`EXCEL_IMPORTED` audit) |
 | GET | `/api/decisions?productCode=&finalDecision=&limit=50` | any | Paginated persisted decisions |
 | GET | `/api/decisions/:id` | any | Full record incl. payloads, outcomes, traces, AI brief |
@@ -174,15 +186,15 @@ npm run build                           # Admin UI type-check + production bundl
 
 ## Admin UI walkthrough (:5173)
 
-1. **Tab 1 — Rule Studio & Simulator**: pick `[Fundamental] Global Eligibility Rule` or a
+1. **Rule Studio & Simulator**: pick `[Fundamental] Global Eligibility Rule` or a
    product rule + version (`v1 (LIVE)`, `v2 (DRAFT)`…); role-gated buttons drive the workflow:
    *Create New Draft from Live* → edit/Excel-upload → *Save Draft* → *Submit for Approval* →
    switch to `carol_approver` → *Approve & Publish to LIVE* / *Reject*. The Two-Tier Live
    Simulator shows the `Fundamental Rule (vN): PASSED ✅ / FAILED ❌` banner plus the product
    outcome badges and AI Copilot card.
-2. **Tab 2 — Persisted UW Decisions (DB)**: real-time table of `underwriting_decisions`;
+2. **UW Decisions Histories**: real-time table of `underwriting_decisions`;
    row drawer shows the input JSON, 4-stage breakdown, AI brief and **Replay Trace in Visual Canvas**.
-3. **Tab 3 — Governance Audit Logs**: `rule_audit_logs` filtered by rule/action with a JSON
+3. **Governance Audit Logs**: `rule_audit_logs` filtered by rule/action with a JSON
    snapshot modal.
 
 ## Notes

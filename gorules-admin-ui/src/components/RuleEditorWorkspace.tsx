@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DecisionGraph } from '@gorules/jdm-editor';
-import { RefreshCw, Play, Save, SendHorizonal, Check, X, FileSpreadsheet, CopyPlus, Sparkles } from 'lucide-react';
+import { RefreshCw, Play, Save, SendHorizonal, Check, X, FileSpreadsheet, CopyPlus, Sparkles, Undo2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { ReplayRequest } from './DecisionHistoryTab';
 import testCasesFile from '../../../shared/test-cases.json';
@@ -112,10 +112,21 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // (Re)load the graph whenever the selected rule OR version changes; clamp to a version
+  // that actually exists in the newly selected rule (e.g. switching from a v2 rule to a v1-only rule).
   useEffect(() => {
-    if (ruleKey && version && detail?.version !== version) loadVersionDetail(ruleKey, version);
+    if (!ruleKey || !version) return;
+    if (detail?.ruleKey === ruleKey && detail?.version === version) return;
+    const grp = groups.find((g) => g.ruleKey === ruleKey);
+    if (!grp) return;
+    if (!grp.versions.some((v) => v.version === version)) {
+      const fallback = grp.versions.find((v) => v.status === 'LIVE') ?? grp.versions[0];
+      if (fallback) setVersion(fallback.version);
+      return;
+    }
+    loadVersionDetail(ruleKey, version);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ruleKey, version]);
+  }, [ruleKey, version, groups, detail]);
 
   // DecisionHistoryTab "Replay Trace in Visual Canvas": load the decision's product version & highlight its trace.
   useEffect(() => {
@@ -213,6 +224,19 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
       await loadVersions(ruleKey, version);
       await loadVersionDetail(ruleKey, version);
       flash(`Rejected v${version}: back to author`);
+    });
+  }
+
+  // Soft delete: mark WITHDRAWN — the row is never hard-deleted and the version number stays consumed.
+  function onWithdraw() {
+    guard(async () => {
+      await apiFetch(`/api/rules/${ruleKey}/versions/${version}/withdraw`, {
+        method: 'POST',
+        body: JSON.stringify({ comment: `Withdrawn from Rule Studio by ${user?.displayName}` }),
+      });
+      await loadVersions(ruleKey, version);
+      await loadVersionDetail(ruleKey, version);
+      flash(`v${version} withdrawn (soft delete; audit trail kept, version number not reusable)`);
     });
   }
 
@@ -317,6 +341,19 @@ export default function RuleEditorWorkspace({ replay, onReplayConsumed }: Props)
             </button>
           </>
         )}
+
+        {selectedVersion &&
+          ((can('edit') && ['DRAFT', 'REJECTED', 'PENDING_APPROVAL'].includes(selectedVersion.status)) ||
+            (can('approve') && selectedVersion.status === 'ARCHIVED')) && (
+            <button
+              className="withdraw icon-btn"
+              onClick={onWithdraw}
+              disabled={busy}
+              title="Soft delete: mark this version WITHDRAWN (row & audit history are never hard-deleted)"
+            >
+              <Undo2 size={14} /> Withdraw
+            </button>
+          )}
 
         <span className="spacer" />
 

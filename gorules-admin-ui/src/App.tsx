@@ -75,13 +75,13 @@ function Shell() {
 
         <nav className="tabs">
           <button className={tab === 'studio' ? 'tab active' : 'tab'} onClick={() => setTab('studio')}>
-            1. Rule Studio &amp; Simulator
+            Rule Studio &amp; Simulator
           </button>
           <button className={tab === 'decisions' ? 'tab active' : 'tab'} onClick={() => setTab('decisions')}>
-            2. Persisted UW Decisions (DB)
+            UW Decisions Histories
           </button>
           <button className={tab === 'audit' ? 'tab active' : 'tab'} onClick={() => setTab('audit')}>
-            3. Governance Audit Logs
+            Governance Audit Logs
           </button>
         </nav>
 

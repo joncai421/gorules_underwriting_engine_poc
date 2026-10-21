@@ -1,6 +1,6 @@
 /** Shared API DTO shapes (camelCase, mirroring gorules-ts-engine responses). */
 
-export type RuleStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'LIVE' | 'REJECTED' | 'ARCHIVED';
+export type RuleStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'LIVE' | 'REJECTED' | 'ARCHIVED' | 'WITHDRAWN';
 
 export interface RuleVersion {
   id: string;

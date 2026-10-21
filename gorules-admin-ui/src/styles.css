@@ -259,9 +259,11 @@ button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
 .status-pill.LIVE { background: var(--clean); }
 .status-pill.REJECTED { background: var(--decline); }
 .status-pill.ARCHIVED { background: #475569; }
+.status-pill.WITHDRAWN { background: #1f2937; color: var(--muted); border: 1px dashed #475569; }
 
 button.approve { background: var(--clean); border-color: var(--clean); color: white; }
 button.reject { background: var(--decline); border-color: var(--decline); color: white; }
+button.withdraw { background: #475569; border-color: #475569; color: white; }
 
 .reject-comment {
   font-size: 12px;

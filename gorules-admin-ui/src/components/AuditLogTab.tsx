@@ -6,7 +6,7 @@ import { RULE_LABELS } from '../apiTypes';
 
 /** Req 3 & 8: chronological governance audit trail with filters and a JSON metadata modal. */
 
-const ACTIONS = ['CREATED_DRAFT', 'UPDATED_DRAFT', 'SUBMITTED_FOR_APPROVAL', 'APPROVED_TO_LIVE', 'REJECTED', 'ARCHIVED', 'EXCEL_IMPORTED'];
+const ACTIONS = ['CREATED_DRAFT', 'UPDATED_DRAFT', 'SUBMITTED_FOR_APPROVAL', 'APPROVED_TO_LIVE', 'REJECTED', 'ARCHIVED', 'EXCEL_IMPORTED', 'WITHDRAWN'];
 
 const ACTION_COLOR: Record<string, string> = {
   CREATED_DRAFT: 'var(--accent)',
@@ -16,6 +16,7 @@ const ACTION_COLOR: Record<string, string> = {
   REJECTED: 'var(--decline)',
   ARCHIVED: '#475569',
   EXCEL_IMPORTED: 'var(--unclean)',
+  WITHDRAWN: '#1f2937',
 };
 
 export default function AuditLogTab() {

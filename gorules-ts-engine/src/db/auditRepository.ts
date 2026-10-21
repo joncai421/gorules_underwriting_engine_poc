@@ -11,7 +11,8 @@ export type AuditAction =
   | 'APPROVED_TO_LIVE'
   | 'REJECTED'
   | 'ARCHIVED'
-  | 'EXCEL_IMPORTED';
+  | 'EXCEL_IMPORTED'
+  | 'WITHDRAWN';
 
 export interface AuditEntry {
   id: string;

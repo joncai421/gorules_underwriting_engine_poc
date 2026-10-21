@@ -2,8 +2,8 @@ import { getPool } from './pool';
 import { logAudit } from './auditRepository';
 import type { AuthUser } from '../auth/authMiddleware';
 
-/** Lifecycle states from the PRD v3 section 5.1 state machine. */
-export type RuleStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'LIVE' | 'REJECTED' | 'ARCHIVED';
+/** Lifecycle states from the PRD v3 section 5.1 state machine (+ WITHDRAWN soft delete). */
+export type RuleStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'LIVE' | 'REJECTED' | 'ARCHIVED' | 'WITHDRAWN';
 
 export interface RuleVersionRow {
   id: string;
@@ -118,7 +118,10 @@ export async function getLiveRuleByTier(ruleTier: 'FUNDAMENTAL' | 'PRODUCT', pro
 /**
  * POST /api/rules/:ruleKey/draft — Req 2.
  * Re-opens the existing DRAFT if one is already open for this rule_key; otherwise clones the
- * currently LIVE version (falling back to the newest version) into a new DRAFT at max(version)+1.
+ * currently LIVE version (falling back to the newest version) into a new DRAFT.
+ * Version numbering is ALWAYS max(version)+1 across ALL existing versions — including
+ * ARCHIVED / REJECTED / WITHDRAWN rows — so a consumed version number is never reused
+ * (soft-deleted records keep their identity and the audit trail stays unambiguous).
  */
 export async function createOrUpdateDraft(
   ruleKey: string,
@@ -303,6 +306,44 @@ export async function approveVersion(
     client.release();
   }
   return { promoted: await getRuleVersion(ruleKey, version), archivedVersion };
+}
+
+/**
+ * Soft delete: withdraw a rule version. The row is NEVER deleted — it is marked WITHDRAWN so
+ * its version number stays consumed and audit references remain meaningful.
+ * Allowed from DRAFT / REJECTED / PENDING_APPROVAL (cancel a submission) / ARCHIVED (retire);
+ * a LIVE version must first be superseded by an approval or moved back to DRAFT.
+ */
+export async function withdrawVersion(
+  ruleKey: string,
+  version: number,
+  user: AuthUser,
+  comment?: string,
+): Promise<RuleVersionRow> {
+  const current = await getRuleVersion(ruleKey, version);
+  if (current.status === 'LIVE') {
+    throw new RuleGovernanceError(
+      `Cannot withdraw the LIVE version v${version}; approve a replacement first (it becomes ARCHIVED) and withdraw it then`,
+      409,
+    );
+  }
+  if (current.status === 'WITHDRAWN') {
+    throw new RuleGovernanceError(`v${version} is already withdrawn`, 409);
+  }
+  await getPool().query(
+    `UPDATE rule_definitions SET status = 'WITHDRAWN', updated_at = NOW() WHERE rule_key = $1 AND version = $2`,
+    [ruleKey, version],
+  );
+  await logAudit('WITHDRAWN', {
+    ruleKey,
+    ruleVersion: version,
+    actorId: user.id,
+    actorRole: user.role,
+    previousStatus: current.status,
+    newStatus: 'WITHDRAWN',
+    comment: comment ?? null,
+  });
+  return getRuleVersion(ruleKey, version);
 }
 
 /** POST .../reject — PENDING_APPROVAL -> REJECTED with a mandatory comment. */
