@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
-  "description": "Headless GoRules (zen-engine) underwriting engine + migration/parity tooling + AI copilot",
+  "description": "Headless GoRules (zen-engine) two-tier underwriting engine (PostgreSQL rule persistence, JWT/RBAC maker-checker governance, audit trail, decision records) + migration/parity tooling + AI copilot",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",

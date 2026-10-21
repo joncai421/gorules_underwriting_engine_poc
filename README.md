@@ -81,8 +81,8 @@ npm run db:up                   # 2) start PostgreSQL 16 (docker compose, health
 npm run db:migrate              # 3) apply db/migrations/*.sql (tracked in schema_migrations)
 npm run db:seed                 # 4) load shared/seed-rules/*.json as v1 LIVE rules
 cd legacy-java-service && ./mvnw spring-boot:run    # 5) legacy baseline :8080 (parity only)
-npm run engine                  # 5) two-tier TS engine :3001 (another terminal)
-npm run ui                      # 6) Admin UI :5173 (another terminal; proxies /api)
+npm run engine                  # 6) two-tier TS engine :3001 (another terminal)
+npm run ui                      # 7) Admin UI :5173 (another terminal; proxies /api)
 ```
 
 `npm run dev` starts engine + UI together. To reset the demo state:
@@ -135,6 +135,9 @@ compiled `ZenEngine` decision cache, so the next underwriting call uses the new 
 | GET | `/api/decisions?productCode=&finalDecision=&limit=50` | any | Paginated persisted decisions |
 | GET | `/api/decisions/:id` | any | Full record incl. payloads, outcomes, traces, AI brief |
 | GET | `/api/audit-logs?ruleKey=&action=&limit=100` | any | Chronological governance trail |
+
+`*` `POST /api/underwrite` stays token-free as the headless data plane (parity tooling, external
+callers); when a Bearer token IS sent, the executing user is recorded as the decision's `triggered_by`.
 
 ### Example: two-tier underwriting
 

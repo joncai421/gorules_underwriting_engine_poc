@@ -2,7 +2,7 @@
   "name": "uw-gorules-poc",
   "version": "1.0.0",
   "private": true,
-  "description": "Headless Underwriting Engine PoC: legacy Java migration to GoRules TS (zen-engine) + AI Copilot + JDM Admin UI",
+  "description": "Headless Underwriting Engine PoC (PRD v3): legacy Java -> DB-backed GoRules TS two-tier pipeline (PostgreSQL, JWT/RBAC maker-checker, audit trail, decision persistence) + AI Copilot + Governance Admin UI",
   "workspaces": [
     "gorules-ts-engine",
     "gorules-admin-ui"

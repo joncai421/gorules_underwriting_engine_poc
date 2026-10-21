@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "React admin UI embedding @gorules/jdm-editor with 4-stage trace inspector, Excel decision-table import, 1-click rule onboarding and AI copilot drawer",
+  "description": "React governance console embedding @gorules/jdm-editor: JWT login + RBAC quick-switch, rule version/Draft-Submit-Approve workflow, two-tier trace simulator, Excel decision-table import, persisted UW decision explorer and audit log viewer",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
