@@ -63,7 +63,9 @@ function check(env: UnderwritingEnvelope, exp: Expected): string[] {
 }
 
 async function run() {
-  const cases: TestCase[] = JSON.parse(fs.readFileSync(TEST_CASES, 'utf-8')).cases;
+  // Only the four-stage parity baseline cases run here; PRD v3 FUND-CASE* entries have no
+  // 'expected' envelope — they are Fundamental-gate knockouts verified via /api/underwrite.
+  const cases: TestCase[] = JSON.parse(fs.readFileSync(TEST_CASES, 'utf-8')).cases.filter((c: TestCase) => c.expected);
   const engine = new UwEngine();
 
   console.log('GoRules Engine Self-Test (PRD v2 four-stage pipeline)');

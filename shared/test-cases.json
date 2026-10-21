@@ -1,200 +1,648 @@
 {
-  "description": "PRD v2 canonical applicants covering all 6 terminal dispositions (>= 2 each). 'expected' is produced by the 4-stage v1 graph AND the legacy Java service (parity baseline). 'expectedV2' (where present) shows the effect of the onboarded Occupation Class 4 / Avocation rules.",
+  "description": "Canonical applicants. 'expected'/'expectedV2' = PRD v2 four-stage parity baseline (all 12 pass the Fundamental gate). FUND-CASE-* entries cover PRD v3 Fundamental Rule knockouts (halted before product evaluation).",
   "cases": [
     {
       "id": "CASE-01",
       "label": "Healthy standard accept",
       "applicant": {
-        "applicantId": "APP-2001", "age": 30, "heightCm": 175, "weightKg": 70, "smoker": false,
-        "systolicBp": 120, "annualIncome": 60000, "sumAssured": 300000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2001",
+        "age": 30,
+        "heightCm": 175,
+        "weightKg": 70,
+        "smoker": false,
+        "systolicBp": 120,
+        "annualIncome": 60000,
+        "sumAssured": 300000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 22.9, "incomeMultiple": 5 },
-        "isSufficient": true, "missingDocCodes": [], "matchedRuleIds": [],
-        "totalEmDebits": 0, "riskClass": "STANDARD", "finalDecision": "ACCEPT_AS_PER_APPLICATION",
-        "loadingPct": 0, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 22.9,
+          "incomeMultiple": 5
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [],
+        "totalEmDebits": 0,
+        "riskClass": "STANDARD",
+        "finalDecision": "ACCEPT_AS_PER_APPLICATION",
+        "loadingPct": 0,
+        "isUncleanReferral": false
       }
     },
     {
       "id": "CASE-02",
       "label": "Mild overweight, Class-4 occupation + skydiving (CLEAN under v1, escalates under onboarded v2)",
       "applicant": {
-        "applicantId": "APP-2002", "age": 40, "heightCm": 180, "weightKg": 82, "smoker": false,
-        "systolicBp": 125, "annualIncome": 90000, "sumAssured": 500000, "occupationClass": 4,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": ["SKYDIVING"]
+        "applicantId": "APP-2002",
+        "age": 40,
+        "heightCm": 180,
+        "weightKg": 82,
+        "smoker": false,
+        "systolicBp": 125,
+        "annualIncome": 90000,
+        "sumAssured": 500000,
+        "occupationClass": 4,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [
+          "SKYDIVING"
+        ],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 25.3, "incomeMultiple": 5.6 },
-        "isSufficient": true, "missingDocCodes": [], "matchedRuleIds": ["RA_MILD_OVERWEIGHT"],
-        "totalEmDebits": 15, "riskClass": "STANDARD", "finalDecision": "ACCEPT_AS_PER_APPLICATION",
-        "loadingPct": 0, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 25.3,
+          "incomeMultiple": 5.6
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_MILD_OVERWEIGHT"
+        ],
+        "totalEmDebits": 15,
+        "riskClass": "STANDARD",
+        "finalDecision": "ACCEPT_AS_PER_APPLICATION",
+        "loadingPct": 0,
+        "isUncleanReferral": false
       },
       "expectedV2": {
-        "derivedMetrics": { "bmi": 25.3, "incomeMultiple": 5.6 },
-        "isSufficient": true, "missingDocCodes": [],
-        "matchedRuleIds": ["RA_MILD_OVERWEIGHT", "RA_OCCUPATION_CLASS_4", "RA_AVOCATION_EXTREME_SPORT"],
-        "totalEmDebits": 95, "riskClass": "SUBSTANDARD_TABLE_B", "finalDecision": "ACCEPT_WITH_LOADING",
-        "loadingPct": 50, "isUncleanReferral": true
+        "derivedMetrics": {
+          "bmi": 25.3,
+          "incomeMultiple": 5.6
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_MILD_OVERWEIGHT",
+          "RA_OCCUPATION_CLASS_4",
+          "RA_AVOCATION_EXTREME_SPORT"
+        ],
+        "totalEmDebits": 95,
+        "riskClass": "SUBSTANDARD_TABLE_B",
+        "finalDecision": "ACCEPT_WITH_LOADING",
+        "loadingPct": 50,
+        "isUncleanReferral": true
       }
     },
     {
       "id": "CASE-03",
       "label": "Obesity -> Table A (+25%)",
       "applicant": {
-        "applicantId": "APP-2003", "age": 35, "heightCm": 170, "weightKg": 85, "smoker": false,
-        "systolicBp": 130, "annualIncome": 100000, "sumAssured": 800000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2003",
+        "age": 35,
+        "heightCm": 170,
+        "weightKg": 85,
+        "smoker": false,
+        "systolicBp": 130,
+        "annualIncome": 100000,
+        "sumAssured": 800000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 29.4, "incomeMultiple": 8 },
-        "isSufficient": true, "missingDocCodes": [], "matchedRuleIds": ["RA_OBESITY_CLASS_1"],
-        "totalEmDebits": 40, "riskClass": "SUBSTANDARD_TABLE_A", "finalDecision": "ACCEPT_WITH_LOADING",
-        "loadingPct": 25, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 29.4,
+          "incomeMultiple": 8
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_OBESITY_CLASS_1"
+        ],
+        "totalEmDebits": 40,
+        "riskClass": "SUBSTANDARD_TABLE_A",
+        "finalDecision": "ACCEPT_WITH_LOADING",
+        "loadingPct": 25,
+        "isUncleanReferral": false
       }
     },
     {
       "id": "CASE-04",
       "label": "Metabolic comorbidity -> Table B (+50%), unclean referral (PRD 3.2 sample)",
       "applicant": {
-        "applicantId": "APP-2004", "age": 46, "heightCm": 172, "weightKg": 88, "smoker": false,
-        "systolicBp": 148, "annualIncome": 80000, "sumAssured": 1200000, "occupationClass": 2,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": ["FATTY_LIVER"],
-        "submittedDocuments": ["PROPOSAL_FORM", "BLOOD_PROFILE"], "avocations": []
+        "applicantId": "APP-2004",
+        "age": 46,
+        "heightCm": 172,
+        "weightKg": 88,
+        "smoker": false,
+        "systolicBp": 148,
+        "annualIncome": 80000,
+        "sumAssured": 1200000,
+        "occupationClass": 2,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [
+          "FATTY_LIVER"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM",
+          "BLOOD_PROFILE"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 29.7, "incomeMultiple": 15 },
-        "isSufficient": true, "missingDocCodes": [],
-        "matchedRuleIds": ["RA_OBESITY_CLASS_1", "RA_HYPERTENSION_S1", "RA_METABOLIC_COMORBIDITY"],
-        "totalEmDebits": 75, "riskClass": "SUBSTANDARD_TABLE_B", "finalDecision": "ACCEPT_WITH_LOADING",
-        "loadingPct": 50, "isUncleanReferral": true
+        "derivedMetrics": {
+          "bmi": 29.7,
+          "incomeMultiple": 15
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_OBESITY_CLASS_1",
+          "RA_HYPERTENSION_S1",
+          "RA_METABOLIC_COMORBIDITY"
+        ],
+        "totalEmDebits": 75,
+        "riskClass": "SUBSTANDARD_TABLE_B",
+        "finalDecision": "ACCEPT_WITH_LOADING",
+        "loadingPct": 50,
+        "isUncleanReferral": true
       }
     },
     {
       "id": "CASE-05",
       "label": "Benign thyroid nodule + mild overweight -> accept with exclusion rider",
       "applicant": {
-        "applicantId": "APP-2005", "age": 33, "heightCm": 170, "weightKg": 75, "smoker": false,
-        "systolicBp": 120, "annualIncome": 70000, "sumAssured": 400000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": ["THYROID_NODULE_BENIGN"],
-        "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2005",
+        "age": 33,
+        "heightCm": 170,
+        "weightKg": 75,
+        "smoker": false,
+        "systolicBp": 120,
+        "annualIncome": 70000,
+        "sumAssured": 400000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [
+          "THYROID_NODULE_BENIGN"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 26, "incomeMultiple": 5.7 },
-        "isSufficient": true, "missingDocCodes": [],
-        "matchedRuleIds": ["RA_BENIGN_THYROID", "RA_MILD_OVERWEIGHT"],
-        "totalEmDebits": 15, "riskClass": "STANDARD_WITH_EXCLUSION", "finalDecision": "ACCEPT_WITH_EXCLUSIONS",
-        "loadingPct": 0, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 26,
+          "incomeMultiple": 5.7
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_BENIGN_THYROID",
+          "RA_MILD_OVERWEIGHT"
+        ],
+        "totalEmDebits": 15,
+        "riskClass": "STANDARD_WITH_EXCLUSION",
+        "finalDecision": "ACCEPT_WITH_EXCLUSIONS",
+        "loadingPct": 0,
+        "isUncleanReferral": false
       }
     },
     {
       "id": "CASE-06",
       "label": "Benign thyroid nodule only -> accept with exclusion, standard debits",
       "applicant": {
-        "applicantId": "APP-2006", "age": 28, "heightCm": 180, "weightKg": 75, "smoker": false,
-        "systolicBp": 115, "annualIncome": 50000, "sumAssured": 300000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": ["THYROID_NODULE_BENIGN"],
-        "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2006",
+        "age": 28,
+        "heightCm": 180,
+        "weightKg": 75,
+        "smoker": false,
+        "systolicBp": 115,
+        "annualIncome": 50000,
+        "sumAssured": 300000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [
+          "THYROID_NODULE_BENIGN"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 23.1, "incomeMultiple": 6 },
-        "isSufficient": true, "missingDocCodes": [], "matchedRuleIds": ["RA_BENIGN_THYROID"],
-        "totalEmDebits": 0, "riskClass": "STANDARD_WITH_EXCLUSION", "finalDecision": "ACCEPT_WITH_EXCLUSIONS",
-        "loadingPct": 0, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 23.1,
+          "incomeMultiple": 6
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_BENIGN_THYROID"
+        ],
+        "totalEmDebits": 0,
+        "riskClass": "STANDARD_WITH_EXCLUSION",
+        "finalDecision": "ACCEPT_WITH_EXCLUSIONS",
+        "loadingPct": 0,
+        "isUncleanReferral": false
       }
     },
     {
       "id": "CASE-07",
       "label": "Recent surgery, otherwise healthy -> postpone",
       "applicant": {
-        "applicantId": "APP-2007", "age": 45, "heightCm": 170, "weightKg": 65, "smoker": false,
-        "systolicBp": 120, "annualIncome": 75000, "sumAssured": 500000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 4, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2007",
+        "age": 45,
+        "heightCm": 170,
+        "weightKg": 65,
+        "smoker": false,
+        "systolicBp": 120,
+        "annualIncome": 75000,
+        "sumAssured": 500000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 4,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 22.5, "incomeMultiple": 6.7 },
-        "isSufficient": true, "missingDocCodes": [], "matchedRuleIds": ["RA_RECENT_SURGERY"],
-        "totalEmDebits": 0, "riskClass": "TEMPORARY_DEFERRED", "finalDecision": "POSTPONE",
-        "loadingPct": 0, "isUncleanReferral": true
+        "derivedMetrics": {
+          "bmi": 22.5,
+          "incomeMultiple": 6.7
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_RECENT_SURGERY"
+        ],
+        "totalEmDebits": 0,
+        "riskClass": "TEMPORARY_DEFERRED",
+        "finalDecision": "POSTPONE",
+        "loadingPct": 0,
+        "isUncleanReferral": true
       }
     },
     {
       "id": "CASE-08",
       "label": "Recent surgery + obesity -> postpone wins over loading (priority check)",
       "applicant": {
-        "applicantId": "APP-2008", "age": 40, "heightCm": 165, "weightKg": 80, "smoker": false,
-        "systolicBp": 130, "annualIncome": 90000, "sumAssured": 700000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 2, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2008",
+        "age": 40,
+        "heightCm": 165,
+        "weightKg": 80,
+        "smoker": false,
+        "systolicBp": 130,
+        "annualIncome": 90000,
+        "sumAssured": 700000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 2,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 29.4, "incomeMultiple": 7.8 },
-        "isSufficient": true, "missingDocCodes": [],
-        "matchedRuleIds": ["RA_RECENT_SURGERY", "RA_OBESITY_CLASS_1"],
-        "totalEmDebits": 40, "riskClass": "TEMPORARY_DEFERRED", "finalDecision": "POSTPONE",
-        "loadingPct": 0, "isUncleanReferral": true
+        "derivedMetrics": {
+          "bmi": 29.4,
+          "incomeMultiple": 7.8
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_RECENT_SURGERY",
+          "RA_OBESITY_CLASS_1"
+        ],
+        "totalEmDebits": 40,
+        "riskClass": "TEMPORARY_DEFERRED",
+        "finalDecision": "POSTPONE",
+        "loadingPct": 0,
+        "isUncleanReferral": true
       }
     },
     {
       "id": "CASE-09",
       "label": "Sum assured 2M without Financial Questionnaire -> request additional info",
       "applicant": {
-        "applicantId": "APP-2009", "age": 40, "heightCm": 175, "weightKg": 70, "smoker": false,
-        "systolicBp": 120, "annualIncome": 100000, "sumAssured": 2000000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2009",
+        "age": 40,
+        "heightCm": 175,
+        "weightKg": 70,
+        "smoker": false,
+        "systolicBp": 120,
+        "annualIncome": 100000,
+        "sumAssured": 2000000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 22.9, "incomeMultiple": 20 },
-        "isSufficient": false, "missingDocCodes": ["FINANCIAL_QUESTIONNAIRE"], "matchedRuleIds": [],
-        "totalEmDebits": 0, "riskClass": "INCOMPLETE_INFO", "finalDecision": "REQUEST_ADDITIONAL_INFO",
-        "loadingPct": 0, "isUncleanReferral": true
+        "derivedMetrics": {
+          "bmi": 22.9,
+          "incomeMultiple": 20
+        },
+        "isSufficient": false,
+        "missingDocCodes": [
+          "FINANCIAL_QUESTIONNAIRE"
+        ],
+        "matchedRuleIds": [],
+        "totalEmDebits": 0,
+        "riskClass": "INCOMPLETE_INFO",
+        "finalDecision": "REQUEST_ADDITIONAL_INFO",
+        "loadingPct": 0,
+        "isUncleanReferral": true
       }
     },
     {
       "id": "CASE-10",
       "label": "Senior (58) fatty liver BMI 32.9, SA 1.5M, missing liver ultrasound + resting ECG",
       "applicant": {
-        "applicantId": "APP-2010", "age": 58, "heightCm": 170, "weightKg": 95, "smoker": true,
-        "systolicBp": 150, "annualIncome": 120000, "sumAssured": 1500000, "occupationClass": 2,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": ["FATTY_LIVER"],
-        "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2010",
+        "age": 58,
+        "heightCm": 170,
+        "weightKg": 95,
+        "smoker": true,
+        "systolicBp": 150,
+        "annualIncome": 120000,
+        "sumAssured": 1500000,
+        "occupationClass": 2,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [
+          "FATTY_LIVER"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 32.9, "incomeMultiple": 12.5 },
-        "isSufficient": false, "missingDocCodes": ["LIVER_ULTRASOUND", "RESTING_ECG"],
-        "matchedRuleIds": ["RA_OBESITY_CLASS_1", "RA_HYPERTENSION_S1", "RA_SMOKER_BP_SYNERGY", "RA_METABOLIC_COMORBIDITY"],
-        "totalEmDebits": 105, "riskClass": "INCOMPLETE_INFO", "finalDecision": "REQUEST_ADDITIONAL_INFO",
-        "loadingPct": 0, "isUncleanReferral": true
+        "derivedMetrics": {
+          "bmi": 32.9,
+          "incomeMultiple": 12.5
+        },
+        "isSufficient": false,
+        "missingDocCodes": [
+          "LIVER_ULTRASOUND",
+          "RESTING_ECG"
+        ],
+        "matchedRuleIds": [
+          "RA_OBESITY_CLASS_1",
+          "RA_HYPERTENSION_S1",
+          "RA_SMOKER_BP_SYNERGY",
+          "RA_METABOLIC_COMORBIDITY"
+        ],
+        "totalEmDebits": 105,
+        "riskClass": "INCOMPLETE_INFO",
+        "finalDecision": "REQUEST_ADDITIONAL_INFO",
+        "loadingPct": 0,
+        "isUncleanReferral": true
       }
     },
     {
       "id": "CASE-11",
       "label": "Hypertensive crisis (BP 190) -> decline",
       "applicant": {
-        "applicantId": "APP-2011", "age": 44, "heightCm": 175, "weightKg": 75, "smoker": false,
-        "systolicBp": 190, "annualIncome": 60000, "sumAssured": 600000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2011",
+        "age": 44,
+        "heightCm": 175,
+        "weightKg": 75,
+        "smoker": false,
+        "systolicBp": 190,
+        "annualIncome": 60000,
+        "sumAssured": 600000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 24.5, "incomeMultiple": 10 },
-        "isSufficient": true, "missingDocCodes": [], "matchedRuleIds": ["RA_BP_CRISIS"],
-        "totalEmDebits": 999, "riskClass": "UNINSURABLE", "finalDecision": "DECLINE",
-        "loadingPct": 0, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 24.5,
+          "incomeMultiple": 10
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_BP_CRISIS"
+        ],
+        "totalEmDebits": 999,
+        "riskClass": "UNINSURABLE",
+        "finalDecision": "DECLINE",
+        "loadingPct": 0,
+        "isUncleanReferral": false
       }
     },
     {
       "id": "CASE-12",
       "label": "Age 70 knock-out (+ stage-1 hypertension collected) -> decline",
       "applicant": {
-        "applicantId": "APP-2012", "age": 70, "heightCm": 170, "weightKg": 72, "smoker": false,
-        "systolicBp": 150, "annualIncome": 100000, "sumAssured": 800000, "occupationClass": 1,
-        "recentSurgeryMonthsAgo": 0, "medicalConditions": [], "submittedDocuments": ["PROPOSAL_FORM"], "avocations": []
+        "applicantId": "APP-2012",
+        "age": 70,
+        "heightCm": 170,
+        "weightKg": 72,
+        "smoker": false,
+        "systolicBp": 150,
+        "annualIncome": 100000,
+        "sumAssured": 800000,
+        "occupationClass": 1,
+        "recentSurgeryMonthsAgo": 0,
+        "medicalConditions": [],
+        "submittedDocuments": [
+          "PROPOSAL_FORM"
+        ],
+        "avocations": [],
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false
       },
       "expected": {
-        "derivedMetrics": { "bmi": 24.9, "incomeMultiple": 8 },
-        "isSufficient": true, "missingDocCodes": [],
-        "matchedRuleIds": ["RA_AGE_KNOCKOUT", "RA_HYPERTENSION_S1"],
-        "totalEmDebits": 1034, "riskClass": "UNINSURABLE", "finalDecision": "DECLINE",
-        "loadingPct": 0, "isUncleanReferral": false
+        "derivedMetrics": {
+          "bmi": 24.9,
+          "incomeMultiple": 8
+        },
+        "isSufficient": true,
+        "missingDocCodes": [],
+        "matchedRuleIds": [
+          "RA_AGE_KNOCKOUT",
+          "RA_HYPERTENSION_S1"
+        ],
+        "totalEmDebits": 1034,
+        "riskClass": "UNINSURABLE",
+        "finalDecision": "DECLINE",
+        "loadingPct": 0,
+        "isUncleanReferral": false
+      }
+    },
+    {
+      "id": "FUND-CASE-01",
+      "label": "Fundamental knockout: AML/sanctions watchlist hit",
+      "applicant": {
+        "applicantId": "APP-9001",
+        "age": 46,
+        "heightCm": 172,
+        "weightKg": 88,
+        "smoker": true,
+        "systolicBp": 148,
+        "annualIncome": 80000,
+        "sumAssured": 1200000,
+        "occupationClass": 2,
+        "recentSurgeryMonthsAgo": 0,
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": true,
+        "medicalConditions": [
+          "FATTY_LIVER"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM",
+          "BLOOD_PROFILE"
+        ],
+        "avocations": []
+      },
+      "fundamentalExpected": {
+        "fundamentalPassed": false,
+        "finalDecision": "DECLINE",
+        "riskClass": "FUNDAMENTAL_KNOCKOUT",
+        "violationRuleIds": [
+          "FUND_AML_SANCTION"
+        ]
+      }
+    },
+    {
+      "id": "FUND-CASE-02",
+      "label": "Fundamental knockout: age 16 outside global 18-70 bounds",
+      "applicant": {
+        "applicantId": "APP-9002",
+        "age": 16,
+        "heightCm": 172,
+        "weightKg": 88,
+        "smoker": false,
+        "systolicBp": 148,
+        "annualIncome": 80000,
+        "sumAssured": 1200000,
+        "occupationClass": 2,
+        "recentSurgeryMonthsAgo": 0,
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false,
+        "medicalConditions": [
+          "FATTY_LIVER"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM",
+          "BLOOD_PROFILE"
+        ],
+        "avocations": []
+      },
+      "fundamentalExpected": {
+        "fundamentalPassed": false,
+        "finalDecision": "DECLINE",
+        "riskClass": "FUNDAMENTAL_KNOCKOUT",
+        "violationRuleIds": [
+          "FUND_GLOBAL_AGE_LIMIT"
+        ]
+      }
+    },
+    {
+      "id": "FUND-CASE-03",
+      "label": "Fundamental halt: unsigned proposal form requests info",
+      "applicant": {
+        "applicantId": "APP-9003",
+        "age": 46,
+        "heightCm": 172,
+        "weightKg": 88,
+        "smoker": true,
+        "systolicBp": 148,
+        "annualIncome": 80000,
+        "sumAssured": 1200000,
+        "occupationClass": 2,
+        "recentSurgeryMonthsAgo": 0,
+        "residencyCountry": "DOMESTIC",
+        "amlWatchlistHit": false,
+        "medicalConditions": [
+          "FATTY_LIVER"
+        ],
+        "submittedDocuments": [
+          "BLOOD_PROFILE"
+        ],
+        "avocations": []
+      },
+      "fundamentalExpected": {
+        "fundamentalPassed": false,
+        "finalDecision": "REQUEST_ADDITIONAL_INFO",
+        "riskClass": "INCOMPLETE_FUNDAMENTAL_KYC",
+        "violationRuleIds": [
+          "FUND_MISSING_PROPOSAL"
+        ],
+        "missingDocCodes": [
+          "PROPOSAL_FORM"
+        ]
+      }
+    },
+    {
+      "id": "FUND-CASE-04",
+      "label": "Fundamental knockout: restricted residency jurisdiction",
+      "applicant": {
+        "applicantId": "APP-9004",
+        "age": 46,
+        "heightCm": 172,
+        "weightKg": 88,
+        "smoker": true,
+        "systolicBp": 148,
+        "annualIncome": 80000,
+        "sumAssured": 1200000,
+        "occupationClass": 2,
+        "recentSurgeryMonthsAgo": 0,
+        "residencyCountry": "RESTRICTED",
+        "amlWatchlistHit": false,
+        "medicalConditions": [
+          "FATTY_LIVER"
+        ],
+        "submittedDocuments": [
+          "PROPOSAL_FORM",
+          "BLOOD_PROFILE"
+        ],
+        "avocations": []
+      },
+      "fundamentalExpected": {
+        "fundamentalPassed": false,
+        "finalDecision": "DECLINE",
+        "riskClass": "FUNDAMENTAL_KNOCKOUT",
+        "violationRuleIds": [
+          "FUND_JURISDICTION"
+        ]
       }
     }
   ]

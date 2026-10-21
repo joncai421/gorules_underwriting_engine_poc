@@ -16,6 +16,10 @@
     "gen:xlsx": "npm run gen:xlsx -w gorules-ts-engine",
     "verify-parity": "npm run verify-parity -w gorules-ts-engine",
     "selftest": "npm run selftest -w gorules-ts-engine",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate -w gorules-ts-engine",
+    "db:seed": "npm run db:seed -w gorules-ts-engine",
     "build": "npm run build -w gorules-admin-ui"
   },
   "devDependencies": {

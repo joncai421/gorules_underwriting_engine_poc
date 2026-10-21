@@ -164,3 +164,213 @@ button.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
 
 .status { font-size: 12px; color: var(--muted); }
 .status.err { color: var(--decline); }
+
+/* ---------------- PRD v3: auth bar, tabs & role pills ---------------- */
+
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  color: #ffffff;
+}
+
+.auth-bar .title { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.auth-bar .spacer { flex: 1; }
+
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+.tab:hover:not(.active) { color: var(--text); }
+
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+
+.role-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: white;
+}
+.role-viewer { background: #64748b; }
+.role-author { background: var(--accent); }
+.role-approver { background: #0d9488; }
+.role-admin { background: var(--unclean); }
+
+.login-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24px;
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 380px;
+  color: var(--text);
+}
+.login-card h2 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.login-card input { font-size: 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 8px 10px; }
+
+.quick-switch { display: flex; flex-wrap: wrap; gap: 6px; }
+.quick-switch .icon-btn { font-size: 12px; padding: 5px 8px; }
+
+/* ---------------- PRD v3: lifecycle status pill & workflow buttons ---------------- */
+
+.status-pill {
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: white;
+  letter-spacing: 0.03em;
+}
+.status-pill.DRAFT { background: var(--accent); }
+.status-pill.PENDING_APPROVAL { background: #0d9488; }
+.status-pill.LIVE { background: var(--clean); }
+.status-pill.REJECTED { background: var(--decline); }
+.status-pill.ARCHIVED { background: #475569; }
+
+button.approve { background: var(--clean); border-color: var(--clean); color: white; }
+button.reject { background: var(--decline); border-color: var(--decline); color: white; }
+
+.reject-comment {
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--decline);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 6px 8px;
+  width: 210px;
+}
+
+.icon-btn.mini { padding: 3px 8px; font-size: 11px; }
+
+/* ---------------- PRD v3: two-stage execution banner ---------------- */
+
+.stage-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--panel-2);
+}
+.stage-badge {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: white;
+}
+.stage-badge.ok { background: var(--clean); }
+.stage-badge.bad { background: var(--decline); }
+.stage-badge.skip { background: #475569; }
+
+/* ---------------- PRD v3: decision & audit tables ---------------- */
+
+.history-page { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.table-area { flex: 1; min-width: 0; overflow: auto; }
+
+.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: var(--text);
+}
+.grid-table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  white-space: nowrap;
+}
+.grid-table td { padding: 7px 10px; border-bottom: 1px solid rgba(51,65,85,0.5); white-space: nowrap; }
+.grid-table tbody tr { cursor: pointer; }
+.grid-table tbody tr:hover { background: rgba(99,102,241,0.08); }
+.grid-table tbody tr.selected { background: rgba(99,102,241,0.16); }
+
+.decision-tag {
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: white;
+  white-space: nowrap;
+}
+
+.drawer.wide { width: 460px; }
+.json-block {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  background: #0b1220;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  overflow: auto;
+  max-height: 300px;
+  color: #cbd5e1;
+  white-space: pre;
+}
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 420px;
+  max-width: 720px;
+  max-height: 80vh;
+  overflow: auto;
+  color: var(--text);
+}
+.modal h3 { margin: 0 0 12px; font-size: 14px; }

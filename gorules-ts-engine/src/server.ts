@@ -1,12 +1,30 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
-import { getEngine, STEP2_NODE_ID } from './engine/uwEngine';
+import { getPipelineEngine } from './engine/uwPipelineEngine';
 import { createCopilot, extractMatchedNodesFromTrace } from './ai/uncleanCaseCopilot';
+import * as ruleRepo from './db/ruleRepository';
+import { RuleGovernanceError } from './db/ruleRepository';
+import { logAudit, queryAuditLogs } from './db/auditRepository';
+import * as decisionRepo from './db/decisionRepository';
+import {
+  ALL_ROLES,
+  AUTHOR_ROLES,
+  APPROVER_ROLES,
+  attachUser,
+  findUserByCredentials,
+  optionalUser,
+  requireRole,
+  signToken,
+} from './auth/authMiddleware';
+import type { AuthUser, RequestWithUser } from './auth/authMiddleware';
 
 const PORT = Number(process.env.PORT || 3001);
 const HOST = process.env.HOST || '0.0.0.0';
+
+// The stage-2 "Risk Assessment" table is the Excel upload target in every product graph.
+const STEP2_NODE_ID = 'node-step2-risk-assessment';
 
 const applicantSchema = z.object({
   applicantId: z.string(),
@@ -19,36 +37,21 @@ const applicantSchema = z.object({
   sumAssured: z.number(),
   occupationClass: z.number(),
   recentSurgeryMonthsAgo: z.number(),
+  residencyCountry: z.string().optional().default('DOMESTIC'),
+  amlWatchlistHit: z.boolean().optional().default(false),
   medicalConditions: z.array(z.string()),
   submittedDocuments: z.array(z.string()),
   avocations: z.array(z.string()).optional().default([]),
 });
 
-// The two 1-click onboarded stage-2 rows (PRD v2 section 6.2).
-const DEFAULT_ONBOARD_ROWS = [
-  {
-    _id: 'ra-13',
-    'ra-age': '', 'ra-bmi': '', 'ra-bp': '', 'ra-smoker': '', 'ra-inc-mult': '',
-    'ra-surg': '', 'ra-med': '', 'ra-occ': '4', 'ra-avoc': '',
-    'ra-out-id': '"RA_OCCUPATION_CLASS_4"',
-    'ra-out-type': '"UNCLEAN_DEBIT"',
-    'ra-out-debits': '50',
-    'ra-out-excl': 'null',
-    'ra-out-reason': '"Class 4 hazardous occupation requires occupational questionnaire & +50 EM loading"',
-  },
-  {
-    _id: 'ra-14',
-    'ra-age': '', 'ra-bmi': '', 'ra-bp': '', 'ra-smoker': '', 'ra-inc-mult': '',
-    'ra-surg': '', 'ra-med': '', 'ra-occ': '', 'ra-avoc': 'contains($, "SKYDIVING")',
-    'ra-out-id': '"RA_AVOCATION_EXTREME_SPORT"',
-    'ra-out-type': '"UNCLEAN_DEBIT"',
-    'ra-out-debits': '30',
-    'ra-out-excl': 'null',
-    'ra-out-reason': '"Extreme sport avocation (skydiving) requires hobby questionnaire & +30 EM loading"',
-  },
-];
+const underwriteSchema = z.object({
+  productCode: z.enum(['TERM_LIFE', 'CRITICAL_ILLNESS']),
+  executionMode: z.enum(['PRODUCTION', 'SIMULATION']).optional().default('PRODUCTION'),
+  aiAssist: z.boolean().optional().default(false),
+  applicant: applicantSchema,
+});
 
-// Excel header -> stage-2 decision-table cell id (PRD v2 section 6.1).
+// Excel header -> stage-2 decision-table cell id (PRD v2 section 6.1, retained for Req 2 uploads).
 const EXCEL_HEADER_TO_CELL: Record<string, string> = {
   RuleId: 'ra-out-id',
   Outcome: 'ra-out-type',
@@ -92,7 +95,7 @@ function sheetToJdmRules(workbook: XLSX.WorkBook): any[] {
         jdmRow[cellId] = value === '-' ? 'null' : `"${value}"`;
       } else if (EXCEL_TEXT_CELLS.has(cellId)) {
         // Zen unary expressions (contains(...)) pass through; plain words become literals.
-        jdmRow[cellId] = EXCEL_HEADER_TO_CELL[header] && ['ra-age', 'ra-bmi', 'ra-bp', 'ra-smoker', 'ra-inc-mult', 'ra-surg', 'ra-med', 'ra-occ'].includes(cellId)
+        jdmRow[cellId] = ['ra-age', 'ra-bmi', 'ra-bp', 'ra-smoker', 'ra-inc-mult', 'ra-surg', 'ra-med', 'ra-occ'].includes(cellId)
           ? value
           : /^[<>!=\[]|^\(.*\.\.|^and |^or |^not\(|^contains\(|^\$|^true$|^false$/.test(value)
             ? value
@@ -105,84 +108,215 @@ function sheetToJdmRules(workbook: XLSX.WorkBook): any[] {
   });
 }
 
+function user(request: FastifyRequest): AuthUser {
+  return (request as RequestWithUser).user!;
+}
+
+function parseVersion(raw: string): number {
+  const v = Number(raw);
+  if (!Number.isInteger(v) || v < 1) throw new RuleGovernanceError(`Invalid rule version: ${raw}`, 400);
+  return v;
+}
+
 async function main() {
-  const engine = getEngine();
+  const pipeline = getPipelineEngine();
   const copilot = createCopilot();
 
   const app = Fastify({ logger: false, bodyLimit: 12 * 1024 * 1024 });
   await app.register(cors, { origin: true });
 
-  app.get('/api/health', async () => ({ ok: true, activeRule: engine.getActiveId() }));
-
-  // List available rule versions + the active one.
-  app.get('/api/rules', async () => ({
-    activeId: engine.getActiveId(),
-    rules: engine.listRules(),
-  }));
-
-  // Fetch raw JDM JSON for a given rule id (Admin UI editor).
-  app.get<{ Params: { id: string } }>('/api/rules/:id', async (req, reply) => {
-    try {
-      return engine.readRaw(req.params.id);
-    } catch (err: any) {
-      reply.code(404);
-      return { error: err.message };
+  // Uniform error funnel: governance violations keep their intended HTTP status.
+  app.setErrorHandler((err: any, _req, reply) => {
+    if (err instanceof RuleGovernanceError) {
+      reply.code(err.status).send({ error: err.message });
+      return;
     }
+    reply.code(500).send({ error: err.message ?? 'Internal error' });
   });
 
-  // Activate a rule version for subsequent /api/underwrite calls.
-  app.post<{ Params: { id: string } }>('/api/rules/:id/activate', async (req, reply) => {
+  // ---------------------------------------------------------------- Health (open)
+  app.get('/api/health', async () => {
+    let liveRules: string[] = [];
     try {
-      engine.setActive(req.params.id);
-      return { activeId: engine.getActiveId() };
-    } catch (err: any) {
+      const grouped = await ruleRepo.listRulesGrouped();
+      liveRules = grouped.flatMap((g) => g.versions.filter((v) => v.status === 'LIVE').map((v) => `${v.ruleKey}@v${v.version}`));
+    } catch {
+      return { ok: false, db: 'down' };
+    }
+    return { ok: true, db: 'up', liveRules };
+  });
+
+  // ---------------------------------------------------------------- Auth (Req 7)
+  app.post<{ Body: { username?: string; password?: string } }>('/api/auth/login', async (req, reply) => {
+    const { username, password } = req.body ?? {};
+    if (!username || !password) {
       reply.code(400);
-      return { error: err.message };
+      return { error: 'Body must contain { username, password }' };
     }
+    const found = await findUserByCredentials(username, password);
+    if (!found) {
+      reply.code(401);
+      return { error: 'Invalid username or password' };
+    }
+    return { token: signToken(found), user: found };
   });
 
-  // Save updated JDM JSON (hot-reload). Optional ?activate=true to switch immediately.
-  app.put<{ Params: { id: string }; Querystring: { activate?: string }; Body: any }>(
-    '/api/rules/:id',
+  app.get('/api/auth/me', { preHandler: attachUser }, async (req) => ({ user: user(req) }));
+
+  // ---------------------------------------------------------------- Two-tier underwriting (Req 1 & 4)
+  // Headless data plane: token-free for external callers (legacy Java, parity tooling);
+  // a Bearer token, when present, is recorded as `triggered_by`.
+  app.post<{ Body: any }>('/api/underwrite', async (req, reply) => {
+    const parsed = underwriteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      reply.code(400);
+      return { error: 'Invalid UnderwriteRequest payload', issues: parsed.error.issues };
+    }
+    const { productCode, executionMode, aiAssist, applicant } = parsed.data;
+
+    let outcome;
+    try {
+      outcome = await pipeline.execute(applicant, productCode);
+    } catch (err: any) {
+      reply.code(500);
+      return { error: err.message ?? 'Pipeline execution failed' };
+    }
+
+    // Req 6 AI copilot: only for unclean referrals when aiAssist is on (Stage B cases; fundamental
+    // halts are eligibility knockouts and bypass the LLM brief).
+    let aiCopilotBrief: unknown = null;
+    if (!outcome.haltedAtFundamental && outcome.isUncleanReferral && aiAssist && outcome.product) {
+      const snapshot = extractMatchedNodesFromTrace(outcome.product.trace);
+      aiCopilotBrief = await copilot.analyze(outcome.product.envelope, applicant, snapshot);
+    }
+
+    // Persistence Guarantee (Req 4): EVERY execution lands in underwriting_decisions.
+    const triggeredBy = optionalUser(req)?.id ?? null;
+    const decisionId = await decisionRepo.insertDecision({
+      applicantId: applicant.applicantId,
+      productCode,
+      executionMode,
+      fundamentalRuleKey: outcome.fundamental.ruleKey,
+      fundamentalRuleVersion: outcome.fundamental.version,
+      fundamentalPassed: outcome.fundamental.passed,
+      productRuleKey: outcome.product?.ruleKey ?? null,
+      productRuleVersion: outcome.product?.version ?? null,
+      finalDecision: outcome.finalDecision,
+      riskClass: outcome.riskClass,
+      totalEmDebits: outcome.totalEmDebits,
+      loadingPct: outcome.loadingPct,
+      exclusions: outcome.exclusions,
+      missingDocuments: outcome.missingDocuments,
+      isUncleanReferral: outcome.isUncleanReferral,
+      requestPayload: { productCode, executionMode, aiAssist, applicant },
+      fundamentalOutcome: outcome.fundamental.outcome,
+      productOutcome: outcome.product?.envelope ?? null,
+      executionTrace: { fundamental: outcome.fundamental.trace, product: outcome.product?.trace ?? null },
+      aiCopilotBrief,
+      executionTimeMs: outcome.executionTimeMs,
+      triggeredBy,
+    });
+
+    const envelope = outcome.product?.envelope;
+    return {
+      decisionId,
+      haltedAtFundamental: outcome.haltedAtFundamental,
+      fundamental: {
+        ruleKey: outcome.fundamental.ruleKey,
+        version: outcome.fundamental.version,
+        passed: outcome.fundamental.passed,
+        outcome: outcome.fundamental.outcome,
+      },
+      product: outcome.product
+        ? { ruleKey: outcome.product.ruleKey, version: outcome.product.version, productCode }
+        : null,
+      finalDecision: outcome.finalDecision,
+      riskClass: outcome.riskClass,
+      totalEmDebits: outcome.totalEmDebits,
+      loadingPct: outcome.loadingPct,
+      exclusions: outcome.exclusions,
+      missingDocuments: outcome.missingDocuments,
+      isUncleanReferral: outcome.isUncleanReferral,
+      executionTimeMs: outcome.executionTimeMs,
+      trace: { fundamental: outcome.fundamental.trace, product: outcome.product?.trace ?? null },
+      aiCopilotBrief,
+      // Flat PRD v2 four-stage envelope (backward compatibility for legacy callers & parity tooling).
+      ...(envelope ?? {}),
+    };
+  });
+
+  // ---------------------------------------------------------------- Rule governance reads (Req 2)
+  app.get('/api/rules', { preHandler: attachUser }, async () => ({ rules: await ruleRepo.listRulesGrouped() }));
+
+  app.get<{ Params: { ruleKey: string; version: string } }>(
+    '/api/rules/:ruleKey/versions/:version',
+    { preHandler: attachUser },
     async (req, reply) => {
       try {
-        const summary = engine.saveRule(req.params.id, req.body);
-        if (req.query.activate === 'true') engine.setActive(req.params.id);
-        return { saved: summary, activeId: engine.getActiveId() };
+        return await ruleRepo.getRuleVersion(req.params.ruleKey, parseVersion(req.params.version));
       } catch (err: any) {
-        reply.code(400);
+        reply.code(err instanceof RuleGovernanceError ? err.status : 500);
         return { error: err.message };
       }
     },
   );
 
-  // Create/append a rule version via API (1-click onboarding backend counterpart).
-  app.post<{ Body: { sourceId?: string; newId?: string; rows?: unknown[]; activate?: boolean } }>(
-    '/api/rules/onboard',
+  // ---------------------------------------------------------------- Draft & submission (RULE_AUTHOR / ADMIN)
+  app.post<{ Params: { ruleKey: string }; Body: { changeNotes?: string } }>(
+    '/api/rules/:ruleKey/draft',
+    { preHandler: requireRole(AUTHOR_ROLES) },
     async (req, reply) => {
       try {
-        const sourceId = req.body?.sourceId ?? engine.getActiveId();
-        const newId = req.body?.newId ?? 'v2-onboarded-rules';
-        const rows = req.body?.rows ?? DEFAULT_ONBOARD_ROWS;
-        const result = engine.onboard(sourceId, newId, rows);
-        if (req.body?.activate !== false) engine.setActive(newId);
-        return { onboarded: result, activeId: engine.getActiveId() };
+        const { draft, created } = await ruleRepo.createOrUpdateDraft(req.params.ruleKey, user(req), req.body?.changeNotes);
+        return { created, draft };
       } catch (err: any) {
-        reply.code(400);
+        reply.code(err instanceof RuleGovernanceError ? err.status : 500);
         return { error: err.message };
       }
     },
   );
 
-  // Excel (.xlsx) upload: replaces the stage-2 Risk Assessment rows of a rule version.
-  app.post<{ Body: { base64?: string; fileName?: string; ruleId?: string; activate?: boolean } }>(
-    '/api/rules/upload-excel',
+  app.put<{ Params: { ruleKey: string; version: string }; Body: any; Querystring: { changeNotes?: string } }>(
+    '/api/rules/:ruleKey/versions/:version/draft',
+    { preHandler: requireRole(AUTHOR_ROLES) },
     async (req, reply) => {
       try {
-        const { base64, ruleId } = req.body ?? {};
-        if (!base64) {
+        pipeline.assertCompilable(req.body);
+        const version = parseVersion(req.params.version);
+        const saved = await ruleRepo.saveDraftJdm(req.params.ruleKey, version, req.body, user(req), {
+          changeNotes: req.query.changeNotes,
+        });
+        return { saved };
+      } catch (err: any) {
+        reply.code(err instanceof RuleGovernanceError ? err.status : 400);
+        return { error: err.message };
+      }
+    },
+  );
+
+  app.post<{ Params: { ruleKey: string; version: string } }>(
+    '/api/rules/:ruleKey/versions/:version/submit',
+    { preHandler: requireRole(AUTHOR_ROLES) },
+    async (req, reply) => {
+      try {
+        return { submitted: await ruleRepo.submitDraft(req.params.ruleKey, parseVersion(req.params.version), user(req)) };
+      } catch (err: any) {
+        reply.code(err instanceof RuleGovernanceError ? err.status : 500);
+        return { error: err.message };
+      }
+    },
+  );
+
+  // Excel (.xlsx) upload: replaces the stage-2 Risk Assessment rows of a DRAFT version in PostgreSQL.
+  app.post<{ Params: { ruleKey: string }; Body: { base64?: string; fileName?: string; version?: number } }>(
+    '/api/rules/:ruleKey/upload-excel',
+    { preHandler: requireRole(AUTHOR_ROLES) },
+    async (req, reply) => {
+      try {
+        const { base64, version } = req.body ?? {};
+        if (!base64 || !version) {
           reply.code(400);
-          return { error: 'Body must contain base64-encoded .xlsx content' };
+          return { error: 'Body must contain { base64 (.xlsx content), version (target DRAFT) }' };
         }
         const buffer = Buffer.from(base64, 'base64');
         const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -192,63 +326,123 @@ async function main() {
           return { error: 'No data rows found in the uploaded worksheet' };
         }
 
-        const targetId = ruleId ?? engine.getActiveId();
-        const jdm = engine.readRaw(targetId);
-        const table = jdm.nodes.find((n: any) => n.id === STEP2_NODE_ID);
+        const target = parseVersion(String(version));
+        const current = await ruleRepo.getRuleVersion(req.params.ruleKey, target);
+        if (current.status !== 'DRAFT') {
+          reply.code(409);
+          return { error: `Excel import target must be a DRAFT version; v${target} is ${current.status}` };
+        }
+        const jdm = current.jdmContent;
+        const table = (jdm?.nodes ?? []).find((n: any) => n.id === STEP2_NODE_ID);
         if (!table) {
           reply.code(400);
-          return { error: `Rule ${targetId} has no ${STEP2_NODE_ID} node` };
+          return { error: `Rule ${req.params.ruleKey} v${target} has no ${STEP2_NODE_ID} node` };
         }
         table.content.rules = rules;
-        const saved = engine.saveRule(targetId, jdm);
-        if (req.body?.activate === true) engine.setActive(targetId);
-
-        return { uploaded: { ruleId: targetId, rowCount: rules.length }, saved, jdm, activeId: engine.getActiveId() };
+        pipeline.assertCompilable(jdm);
+        const saved = await ruleRepo.saveDraftJdm(req.params.ruleKey, target, jdm, user(req), {
+          changeNotes: `Excel import '${req.body?.fileName ?? 'upload.xlsx'}' -> ${rules.length} stage-2 rows`,
+          auditAction: 'EXCEL_IMPORTED',
+        });
+        return { uploaded: { ruleKey: req.params.ruleKey, version: target, rowCount: rules.length }, saved };
       } catch (err: any) {
-        reply.code(400);
+        reply.code(err instanceof RuleGovernanceError ? err.status : 400);
         return { error: err.message };
       }
     },
   );
 
-  // Headless underwriting evaluation (PRD v2 four-stage envelope).
-  app.post<{ Body: any; Querystring: { aiAssist?: string; rule?: string } }>(
-    '/api/underwrite',
+  // ---------------------------------------------------------------- Approval (RULE_APPROVER / ADMIN, Maker-Checker)
+  app.post<{ Params: { ruleKey: string; version: string }; Body: { comment?: string } }>(
+    '/api/rules/:ruleKey/versions/:version/approve',
+    { preHandler: requireRole(APPROVER_ROLES) },
     async (req, reply) => {
-      const parsed = applicantSchema.safeParse(req.body);
-      if (!parsed.success) {
-        reply.code(400);
-        return { error: 'Invalid ApplicantRequest payload', issues: parsed.error.issues };
-      }
-      const applicant = parsed.data;
-      const wantAi = String(req.query.aiAssist).toLowerCase() === 'true';
-
       try {
-        const outcome = await engine.evaluate(applicant, req.query.rule);
-        const response: any = {
-          ...outcome.result,
-          executionTimeMs: outcome.executionTimeMs,
-          trace: outcome.trace,
-          activeRule: outcome.activeRuleId,
-        };
+        const version = parseVersion(req.params.version);
+        const actor = user(req);
+        const target = await ruleRepo.getRuleVersion(req.params.ruleKey, version);
 
-        // Requirement 6: the copilot fires ONLY for unclean referrals (incl. Step 1.1
-        // evidence requests) and only when aiAssist is on. CLEAN/DECLINE bypass it.
-        if (outcome.result.step4UnderwritingDecision?.isUncleanReferral && wantAi) {
-          const snapshot = extractMatchedNodesFromTrace(outcome.trace);
-          response.aiCopilotBrief = await copilot.analyze(outcome.result, applicant, snapshot);
+        // Maker-Checker Guard: an author cannot approve their own submission unless ADMIN.
+        if (actor.role !== 'ADMIN' && target.submittedBy === actor.id) {
+          reply.code(403);
+          return { error: 'Forbidden (maker-checker): you submitted this version and cannot approve your own submission' };
         }
-        return response;
+
+        const result = await ruleRepo.approveVersion(req.params.ruleKey, version, actor, req.body?.comment);
+        // Immediate publication: drop the compiled ZenEngine cache for this rule_key.
+        pipeline.invalidate(req.params.ruleKey);
+        return {
+          approved: { ...result.promoted, jdmContent: undefined },
+          archivedVersion: result.archivedVersion,
+        };
       } catch (err: any) {
-        reply.code(500);
+        reply.code(err instanceof RuleGovernanceError ? err.status : 500);
         return { error: err.message };
       }
     },
+  );
+
+  app.post<{ Params: { ruleKey: string; version: string }; Body: { reviewComment?: string } }>(
+    '/api/rules/:ruleKey/versions/:version/reject',
+    { preHandler: requireRole(APPROVER_ROLES) },
+    async (req, reply) => {
+      try {
+        const comment = req.body?.reviewComment?.trim();
+        if (!comment) {
+          reply.code(400);
+          return { error: 'A rejection requires a non-empty reviewComment' };
+        }
+        const rejected = await ruleRepo.rejectVersion(req.params.ruleKey, parseVersion(req.params.version), user(req), comment);
+        return { rejected: { ...rejected, jdmContent: undefined } };
+      } catch (err: any) {
+        reply.code(err instanceof RuleGovernanceError ? err.status : 500);
+        return { error: err.message };
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------- Persisted decisions (Req 4)
+  app.get<{ Querystring: { productCode?: string; finalDecision?: string; limit?: string } }>(
+    '/api/decisions',
+    { preHandler: attachUser },
+    async (req) => ({
+      decisions: await decisionRepo.listDecisions({
+        productCode: req.query.productCode,
+        finalDecision: req.query.finalDecision,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+      }),
+    }),
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/api/decisions/:id',
+    { preHandler: attachUser },
+    async (req, reply) => {
+      const record = await decisionRepo.getDecisionById(req.params.id);
+      if (!record) {
+        reply.code(404);
+        return { error: `Decision ${req.params.id} not found` };
+      }
+      return record;
+    },
+  );
+
+  // ---------------------------------------------------------------- Audit trail (Req 3)
+  app.get<{ Querystring: { ruleKey?: string; action?: string; limit?: string } }>(
+    '/api/audit-logs',
+    { preHandler: attachUser },
+    async (req) => ({
+      logs: await queryAuditLogs({
+        ruleKey: req.query.ruleKey,
+        action: req.query.action,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+      }),
+    }),
   );
 
   await app.listen({ port: PORT, host: HOST });
   // eslint-disable-next-line no-console
-  console.log(`[gorules-ts-engine] listening on http://localhost:${PORT} (active rule: ${engine.getActiveId()})`);
+  console.log(`[gorules-ts-engine v3] two-tier pipeline listening on http://localhost:${PORT} (roles: ${ALL_ROLES.join('/')})`);
 }
 
 main().catch((err) => {

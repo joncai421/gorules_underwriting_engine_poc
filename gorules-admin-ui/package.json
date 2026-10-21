@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "React admin UI embedding @gorules/jdm-editor with live simulator, trace highlighter, rule onboarding and AI copilot drawer",
+  "description": "React admin UI embedding @gorules/jdm-editor with 4-stage trace inspector, Excel decision-table import, 1-click rule onboarding and AI copilot drawer",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

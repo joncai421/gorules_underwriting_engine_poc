@@ -5,15 +5,17 @@ import path from 'node:path';
  * parityVerifier.ts  (`npm run verify-parity`)
  *
  * Shadow-mode behavioral equivalence check between the LEGACY Java service (:8080) and
- * the migrated GoRules TS engine (:3001) for the PRD v2 four-stage pipeline. Loads the
- * canonical test applicants, fires both engines concurrently, and prints a terminal
+ * the DB-backed GoRules TS engine (:3001) for the PRD v2 four-stage pipeline. Per PRD v3 the
+ * TS side now runs the two-tier pipeline: the canonical applicants pass the Fundamental
+ * gate and are evaluated by the LIVE `PRODUCT_TERM_LIFE` v1 rule in SIMULATION mode.
+ * Loads the canonical test applicants, fires both engines concurrently, and prints a terminal
  * comparison table asserting that `derivedMetrics`, `step1SufficientInfo`,
  * `totalEmDebits`, `riskClass`, `finalDecision` (plus loading % and matched rule order)
  * match 100%.
  *
  * Exits with code 1 on any discrepancy so it can gate CI.
  *
- * Prerequisite: both services running, e.g.
+ * Prerequisite: docker DB migrated+seeded, both services running, e.g.
  *   (cd legacy-java-service && ./mvnw spring-boot:run)
  *   npm run engine
  */
@@ -21,7 +23,7 @@ import path from 'node:path';
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const TEST_CASES = path.join(REPO_ROOT, 'shared', 'test-cases.json');
 const JAVA_URL = process.env.JAVA_URL || 'http://localhost:8080/api/legacy/underwrite';
-const TS_URL = process.env.TS_URL || 'http://localhost:3001/api/underwrite?rule=v1-migrated-rules';
+const TS_URL = process.env.TS_URL || 'http://localhost:3001/api/underwrite';
 
 interface Envelope {
   applicantId: string;
@@ -41,6 +43,10 @@ async function post(url: string, body: unknown): Promise<Envelope> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return (await res.json()) as Envelope;
 }
+
+// Legacy Java takes the bare applicant payload; the v3 two-tier engine takes the envelope.
+const postTs = (applicant: unknown) =>
+  post(TS_URL, { productCode: 'TERM_LIFE', executionMode: 'SIMULATION', applicant });
 
 function fingerprint(e: Envelope): string[] {
   return [
@@ -63,25 +69,32 @@ function same(a: Envelope, b: Envelope): boolean {
 }
 
 async function main() {
-  const cases: any[] = JSON.parse(fs.readFileSync(TEST_CASES, 'utf-8')).cases;
+  // Only the legacy parity baseline cases (with an 'expected' block) run through the Java shadow
+  // comparison; PRD v3 FUND-CASE* knockouts are halted by the Fundamental rule on the TS side.
+  const cases: any[] = JSON.parse(fs.readFileSync(TEST_CASES, 'utf-8')).cases.filter((c: any) => c.expected);
 
   console.log('Parity Verifier (Shadow Mode): Legacy Java :8080  vs  GoRules TS :3001  [PRD v2 pipeline]');
   console.log('=========================================================================================');
 
   // Verify both endpoints are reachable first.
-  for (const [label, url] of [['Java', JAVA_URL], ['TS', TS_URL]] as const) {
-    try {
-      await post(url, cases[0].applicant);
-    } catch (err: any) {
-      console.error(`\nCannot reach ${label} service at ${url}: ${err.message}`);
-      console.error('Start both services before running verify-parity.');
-      process.exit(1);
-    }
+  try {
+    await post(JAVA_URL, cases[0].applicant);
+  } catch (err: any) {
+    console.error(`\nCannot reach Java service at ${JAVA_URL}: ${err.message}`);
+    console.error('Start the legacy service before running verify-parity.');
+    process.exit(1);
+  }
+  try {
+    await postTs(cases[0].applicant);
+  } catch (err: any) {
+    console.error(`\nCannot reach TS engine at ${TS_URL}: ${err.message}`);
+    console.error("Start the engine (npm run engine) with the DB migrated & seeded.");
+    process.exit(1);
   }
 
   const rows = await Promise.all(
     cases.map(async (c) => {
-      const [java, ts] = await Promise.all([post(JAVA_URL, c.applicant), post(TS_URL, c.applicant)]);
+      const [java, ts] = await Promise.all([post(JAVA_URL, c.applicant), postTs(c.applicant)]);
       return { c, java, ts, ok: same(java, ts) };
     }),
   );

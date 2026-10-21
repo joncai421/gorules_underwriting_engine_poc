@@ -1,0 +1,168 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "node-input",
+      "name": "Fundamental Request Input",
+      "type": "inputNode",
+      "position": {
+        "x": 40,
+        "y": 240
+      }
+    },
+    {
+      "id": "node-fund-check",
+      "name": "A. Fundamental Eligibility Gate (AML / Age / KYC / Jurisdiction)",
+      "type": "decisionTableNode",
+      "position": {
+        "x": 320,
+        "y": 240
+      },
+      "content": {
+        "hitPolicy": "collect",
+        "inputField": null,
+        "outputPath": "violations",
+        "passThrough": true,
+        "inputs": [
+          {
+            "id": "fi-aml",
+            "name": "AML / Sanctions Watchlist Hit",
+            "field": "amlWatchlistHit"
+          },
+          {
+            "id": "fi-age",
+            "name": "Age",
+            "field": "age"
+          },
+          {
+            "id": "fi-docs",
+            "name": "Submitted Docs",
+            "field": "submittedDocuments"
+          },
+          {
+            "id": "fi-res",
+            "name": "Residency Country",
+            "field": "residencyCountry"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "fo-decision",
+            "name": "Fundamental Decision",
+            "field": "fundamentalDecision"
+          },
+          {
+            "id": "fo-rule",
+            "name": "Rule ID",
+            "field": "ruleId"
+          },
+          {
+            "id": "fo-doc",
+            "name": "Missing Doc",
+            "field": "missingDoc"
+          },
+          {
+            "id": "fo-reason",
+            "name": "Reason",
+            "field": "reason"
+          }
+        ],
+        "rules": [
+          {
+            "_id": "fund-1",
+            "fi-aml": "true",
+            "fi-age": "",
+            "fi-docs": "",
+            "fi-res": "",
+            "fo-decision": "\"DECLINE\"",
+            "fo-rule": "\"FUND_AML_SANCTION\"",
+            "fo-doc": "null",
+            "fo-reason": "\"Applicant flagged on AML/Sanctions watchlist\""
+          },
+          {
+            "_id": "fund-2",
+            "fi-aml": "",
+            "fi-age": "< 18",
+            "fi-docs": "",
+            "fi-res": "",
+            "fo-decision": "\"DECLINE\"",
+            "fo-rule": "\"FUND_GLOBAL_AGE_LIMIT\"",
+            "fo-doc": "null",
+            "fo-reason": "\"Applicant outside global statutory insurable age (18-70)\""
+          },
+          {
+            "_id": "fund-3",
+            "fi-aml": "",
+            "fi-age": "> 70",
+            "fi-docs": "",
+            "fi-res": "",
+            "fo-decision": "\"DECLINE\"",
+            "fo-rule": "\"FUND_GLOBAL_AGE_LIMIT\"",
+            "fo-doc": "null",
+            "fo-reason": "\"Applicant outside global statutory insurable age (18-70)\""
+          },
+          {
+            "_id": "fund-4",
+            "fi-aml": "",
+            "fi-age": "",
+            "fi-docs": "not(contains($, \"PROPOSAL_FORM\"))",
+            "fi-res": "",
+            "fo-decision": "\"REQUEST_ADDITIONAL_INFO\"",
+            "fo-rule": "\"FUND_MISSING_PROPOSAL\"",
+            "fo-doc": "\"PROPOSAL_FORM\"",
+            "fo-reason": "\"Signed Proposal Form is mandatory before product underwriting\""
+          },
+          {
+            "_id": "fund-5",
+            "fi-aml": "",
+            "fi-age": "",
+            "fi-docs": "",
+            "fi-res": "\"RESTRICTED\"",
+            "fo-decision": "\"DECLINE\"",
+            "fo-rule": "\"FUND_JURISDICTION\"",
+            "fo-doc": "null",
+            "fo-reason": "\"Unsupported residency jurisdiction\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-fund-aggregator",
+      "name": "A.9 Fundamental Outcome Aggregator",
+      "type": "functionNode",
+      "position": {
+        "x": 640,
+        "y": 240
+      },
+      "content": {
+        "source": "export const handler = async (input) => {\n  const violations = (input.violations || []).map((v) => ({\n    ruleId: v.ruleId,\n    fundamentalDecision: v.fundamentalDecision,\n    missingDoc: v.missingDoc || null,\n    reason: v.reason\n  }));\n  const hasDecline = violations.some((v) => v.fundamentalDecision === 'DECLINE');\n  const hasRequestInfo = violations.some((v) => v.fundamentalDecision === 'REQUEST_ADDITIONAL_INFO');\n  return {\n    applicantId: input.applicantId,\n    fundamentalPassed: violations.length === 0,\n    finalDecision: hasDecline ? 'DECLINE' : (hasRequestInfo ? 'REQUEST_ADDITIONAL_INFO' : 'PASS'),\n    riskClass: hasDecline ? 'FUNDAMENTAL_KNOCKOUT' : (hasRequestInfo ? 'INCOMPLETE_FUNDAMENTAL_KYC' : 'ELIGIBLE'),\n    violations: violations\n  };\n};"
+      }
+    },
+    {
+      "id": "node-output",
+      "name": "Fundamental Outcome",
+      "type": "outputNode",
+      "position": {
+        "x": 960,
+        "y": 240
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "sourceId": "node-input",
+      "targetId": "node-fund-check"
+    },
+    {
+      "id": "e2",
+      "sourceId": "node-fund-check",
+      "targetId": "node-fund-aggregator"
+    },
+    {
+      "id": "e3",
+      "sourceId": "node-fund-aggregator",
+      "targetId": "node-output"
+    }
+  ]
+}

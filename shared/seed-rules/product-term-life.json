@@ -1,0 +1,745 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "node-input",
+      "name": "1. Proposal Form Input",
+      "type": "inputNode",
+      "position": {
+        "x": 40,
+        "y": 240
+      }
+    },
+    {
+      "id": "node-formulas",
+      "name": "0. Formulas (BMI & Financials)",
+      "type": "expressionNode",
+      "position": {
+        "x": 280,
+        "y": 240
+      },
+      "content": {
+        "expressions": [
+          {
+            "id": "expr-bmi",
+            "key": "derived.bmi",
+            "value": "round(weightKg / (heightCm / 100 * (heightCm / 100)) * 10) / 10"
+          },
+          {
+            "id": "expr-income-mult",
+            "key": "derived.incomeMultiple",
+            "value": "round(sumAssured / annualIncome * 10) / 10"
+          }
+        ],
+        "passThrough": true
+      }
+    },
+    {
+      "id": "node-step1-info-check",
+      "name": "1.1 Sufficient Info & Evidence Check",
+      "type": "decisionTableNode",
+      "position": {
+        "x": 560,
+        "y": 100
+      },
+      "content": {
+        "hitPolicy": "collect",
+        "inputField": null,
+        "outputPath": "missingInfoMatches",
+        "passThrough": true,
+        "inputs": [
+          {
+            "id": "inf-sa",
+            "name": "Sum Assured",
+            "field": "sumAssured"
+          },
+          {
+            "id": "inf-age",
+            "name": "Age",
+            "field": "age"
+          },
+          {
+            "id": "inf-bmi",
+            "name": "Calculated BMI",
+            "field": "derived.bmi"
+          },
+          {
+            "id": "inf-med",
+            "name": "Medical Conditions",
+            "field": "medicalConditions"
+          },
+          {
+            "id": "inf-docs",
+            "name": "Submitted Docs",
+            "field": "submittedDocuments"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "out-doc-code",
+            "name": "Missing Doc Code",
+            "field": "missingDoc"
+          },
+          {
+            "id": "out-doc-reason",
+            "name": "Reason",
+            "field": "reason"
+          }
+        ],
+        "rules": [
+          {
+            "_id": "migrated-s1-1",
+            "inf-sa": "> 1500000",
+            "inf-age": "",
+            "inf-bmi": "",
+            "inf-med": "",
+            "inf-docs": "not(contains($, \"FINANCIAL_QUESTIONNAIRE\"))",
+            "out-doc-code": "\"FINANCIAL_QUESTIONNAIRE\"",
+            "out-doc-reason": "\"High sum assured > 1.5M requires signed Financial Questionnaire\""
+          },
+          {
+            "_id": "migrated-s1-2",
+            "inf-sa": "",
+            "inf-age": "",
+            "inf-bmi": ">= 32",
+            "inf-med": "contains($, \"FATTY_LIVER\")",
+            "inf-docs": "not(contains($, \"LIVER_ULTRASOUND\"))",
+            "out-doc-code": "\"LIVER_ULTRASOUND\"",
+            "out-doc-reason": "\"Fatty liver with BMI >= 32 requires Liver Ultrasound report\""
+          },
+          {
+            "_id": "migrated-s1-3",
+            "inf-sa": ">= 1000000",
+            "inf-age": ">= 55",
+            "inf-bmi": "",
+            "inf-med": "",
+            "inf-docs": "not(contains($, \"RESTING_ECG\"))",
+            "out-doc-code": "\"RESTING_ECG\"",
+            "out-doc-reason": "\"Senior applicant >= 55 with SA >= 1M requires Resting ECG\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-step2-risk-assessment",
+      "name": "2. Risk Assessment (Debits & Flags)",
+      "type": "decisionTableNode",
+      "position": {
+        "x": 560,
+        "y": 360
+      },
+      "content": {
+        "hitPolicy": "collect",
+        "inputField": null,
+        "outputPath": "assessmentMatches",
+        "passThrough": true,
+        "inputs": [
+          {
+            "id": "ra-age",
+            "name": "Age",
+            "field": "age"
+          },
+          {
+            "id": "ra-bmi",
+            "name": "Calculated BMI",
+            "field": "derived.bmi"
+          },
+          {
+            "id": "ra-bp",
+            "name": "Systolic BP",
+            "field": "systolicBp"
+          },
+          {
+            "id": "ra-smoker",
+            "name": "Smoker",
+            "field": "smoker"
+          },
+          {
+            "id": "ra-inc-mult",
+            "name": "Income Multiple",
+            "field": "derived.incomeMultiple"
+          },
+          {
+            "id": "ra-surg",
+            "name": "Surgery Months Ago",
+            "field": "recentSurgeryMonthsAgo"
+          },
+          {
+            "id": "ra-med",
+            "name": "Medical Conditions",
+            "field": "medicalConditions"
+          },
+          {
+            "id": "ra-occ",
+            "name": "Occupation Class",
+            "field": "occupationClass"
+          },
+          {
+            "id": "ra-avoc",
+            "name": "Avocations",
+            "field": "avocations"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "ra-out-id",
+            "name": "Rule ID",
+            "field": "ruleId"
+          },
+          {
+            "id": "ra-out-type",
+            "name": "Assessment Outcome",
+            "field": "outcome"
+          },
+          {
+            "id": "ra-out-debits",
+            "name": "EM Debits",
+            "field": "debits"
+          },
+          {
+            "id": "ra-out-excl",
+            "name": "Exclusion Code",
+            "field": "exclusionCode"
+          },
+          {
+            "id": "ra-out-reason",
+            "name": "Reason",
+            "field": "reason"
+          }
+        ],
+        "rules": [
+          {
+            "_id": "migrated-s2-1",
+            "ra-age": "< 18",
+            "ra-bmi": "",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_AGE_KNOCKOUT\"",
+            "ra-out-type": "\"DECLINE\"",
+            "ra-out-debits": "999",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Age outside insurable range 18-65\""
+          },
+          {
+            "_id": "migrated-s2-2",
+            "ra-age": "> 65",
+            "ra-bmi": "",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_AGE_KNOCKOUT\"",
+            "ra-out-type": "\"DECLINE\"",
+            "ra-out-debits": "999",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Age outside insurable range 18-65\""
+          },
+          {
+            "_id": "migrated-s2-3",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": ">= 180",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_BP_CRISIS\"",
+            "ra-out-type": "\"DECLINE\"",
+            "ra-out-debits": "999",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Hypertensive crisis (Systolic BP >= 180)\""
+          },
+          {
+            "_id": "migrated-s2-4",
+            "ra-age": "",
+            "ra-bmi": ">= 38",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_EXTREME_BMI\"",
+            "ra-out-type": "\"DECLINE\"",
+            "ra-out-debits": "999",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Severe obesity BMI >= 38\""
+          },
+          {
+            "_id": "migrated-s2-5",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "> 25",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_FINANCIAL_OVERINSURED\"",
+            "ra-out-type": "\"DECLINE\"",
+            "ra-out-debits": "999",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Sum assured exceeds 25x annual income\""
+          },
+          {
+            "_id": "migrated-s2-6",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "> 0 and <= 6",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_RECENT_SURGERY\"",
+            "ra-out-type": "\"POSTPONE\"",
+            "ra-out-debits": "0",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Major surgery within last 6 months; postpone until recovery\""
+          },
+          {
+            "_id": "migrated-s2-7",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "contains($, \"THYROID_NODULE_BENIGN\")",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_BENIGN_THYROID\"",
+            "ra-out-type": "\"EXCLUSION\"",
+            "ra-out-debits": "0",
+            "ra-out-excl": "\"EXCL_THYROID_GLAND\"",
+            "ra-out-reason": "\"TI-RADS 2/3 thyroid nodule requires thyroid exclusion rider\""
+          },
+          {
+            "_id": "migrated-s2-8",
+            "ra-age": "",
+            "ra-bmi": ">= 25 and < 28",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_MILD_OVERWEIGHT\"",
+            "ra-out-type": "\"DEBIT\"",
+            "ra-out-debits": "15",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Mild overweight (BMI 25.0-27.9)\""
+          },
+          {
+            "_id": "migrated-s2-9",
+            "ra-age": "",
+            "ra-bmi": ">= 28 and < 38",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_OBESITY_CLASS_1\"",
+            "ra-out-type": "\"DEBIT\"",
+            "ra-out-debits": "40",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Obesity Class I/II (BMI 28.0-37.9)\""
+          },
+          {
+            "_id": "migrated-s2-10",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": ">= 140 and < 160",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_HYPERTENSION_S1\"",
+            "ra-out-type": "\"DEBIT\"",
+            "ra-out-debits": "35",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Stage 1 Hypertension (140-159 mmHg)\""
+          },
+          {
+            "_id": "migrated-s2-11",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": ">= 160 and < 180",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_HYPERTENSION_S2\"",
+            "ra-out-type": "\"DEBIT\"",
+            "ra-out-debits": "80",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Stage 2 Hypertension (160-179 mmHg)\""
+          },
+          {
+            "_id": "migrated-s2-12",
+            "ra-age": "",
+            "ra-bmi": "",
+            "ra-bp": ">= 140 and < 180",
+            "ra-smoker": "true",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_SMOKER_BP_SYNERGY\"",
+            "ra-out-type": "\"UNCLEAN_DEBIT\"",
+            "ra-out-debits": "30",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Synergistic cardiovascular risk: Smoker + Hypertension\""
+          },
+          {
+            "_id": "migrated-s2-13",
+            "ra-age": "",
+            "ra-bmi": ">= 28",
+            "ra-bp": "",
+            "ra-smoker": "",
+            "ra-inc-mult": "",
+            "ra-surg": "",
+            "ra-med": "contains($, \"FATTY_LIVER\")",
+            "ra-occ": "",
+            "ra-avoc": "",
+            "ra-out-id": "\"RA_METABOLIC_COMORBIDITY\"",
+            "ra-out-type": "\"UNCLEAN_DEBIT\"",
+            "ra-out-debits": "0",
+            "ra-out-excl": "null",
+            "ra-out-reason": "\"Metabolic comorbidity: BMI >= 28 with Fatty Liver requires underwriter review\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-step2-summary",
+      "name": "2.5 Assessment Summary Formulas",
+      "type": "expressionNode",
+      "position": {
+        "x": 860,
+        "y": 240
+      },
+      "content": {
+        "expressions": [
+          {
+            "id": "sum-1",
+            "key": "assessmentSummary.isSufficient",
+            "value": "len(missingInfoMatches) == 0"
+          },
+          {
+            "id": "sum-2",
+            "key": "assessmentSummary.totalEmDebits",
+            "value": "sum(map(assessmentMatches, #.debits))"
+          },
+          {
+            "id": "sum-3",
+            "key": "assessmentSummary.hasDeclineTrigger",
+            "value": "some(assessmentMatches, #.outcome == \"DECLINE\")"
+          },
+          {
+            "id": "sum-4",
+            "key": "assessmentSummary.hasPostponeTrigger",
+            "value": "some(assessmentMatches, #.outcome == \"POSTPONE\")"
+          },
+          {
+            "id": "sum-5",
+            "key": "assessmentSummary.hasExclusionTrigger",
+            "value": "some(assessmentMatches, #.outcome == \"EXCLUSION\")"
+          },
+          {
+            "id": "sum-6",
+            "key": "assessmentSummary.hasComorbidityUncleanTrigger",
+            "value": "some(assessmentMatches, #.outcome == \"UNCLEAN_DEBIT\")"
+          }
+        ],
+        "passThrough": true
+      }
+    },
+    {
+      "id": "node-step3-classification",
+      "name": "3. Risk Classification & 4. Decision Matrix",
+      "type": "decisionTableNode",
+      "position": {
+        "x": 1140,
+        "y": 240
+      },
+      "content": {
+        "hitPolicy": "first",
+        "inputField": null,
+        "outputPath": "classificationResult",
+        "passThrough": true,
+        "inputs": [
+          {
+            "id": "rc-suff",
+            "name": "Sufficient Info?",
+            "field": "assessmentSummary.isSufficient"
+          },
+          {
+            "id": "rc-dec",
+            "name": "Has Decline?",
+            "field": "assessmentSummary.hasDeclineTrigger"
+          },
+          {
+            "id": "rc-post",
+            "name": "Has Postpone?",
+            "field": "assessmentSummary.hasPostponeTrigger"
+          },
+          {
+            "id": "rc-excl",
+            "name": "Has Exclusion?",
+            "field": "assessmentSummary.hasExclusionTrigger"
+          },
+          {
+            "id": "rc-debits",
+            "name": "Total EM Debits",
+            "field": "assessmentSummary.totalEmDebits"
+          },
+          {
+            "id": "rc-unclean",
+            "name": "Comorbidity Flag?",
+            "field": "assessmentSummary.hasComorbidityUncleanTrigger"
+          }
+        ],
+        "outputs": [
+          {
+            "id": "rc-out-class",
+            "name": "3. Risk Class",
+            "field": "riskClass"
+          },
+          {
+            "id": "rc-out-table",
+            "name": "Actuarial Rating",
+            "field": "actuarialTableRating"
+          },
+          {
+            "id": "rc-out-decision",
+            "name": "4. Final Decision",
+            "field": "finalDecision"
+          },
+          {
+            "id": "rc-out-load",
+            "name": "Loading %",
+            "field": "loadingPct"
+          },
+          {
+            "id": "rc-out-refer",
+            "name": "Is Unclean Referral?",
+            "field": "isUncleanReferral"
+          }
+        ],
+        "rules": [
+          {
+            "_id": "migrated-s3-1",
+            "rc-suff": "false",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "",
+            "rc-debits": "",
+            "rc-unclean": "",
+            "rc-out-class": "\"INCOMPLETE_INFO\"",
+            "rc-out-table": "\"Pending Evidence\"",
+            "rc-out-decision": "\"REQUEST_ADDITIONAL_INFO\"",
+            "rc-out-load": "0",
+            "rc-out-refer": "true"
+          },
+          {
+            "_id": "migrated-s3-2",
+            "rc-suff": "",
+            "rc-dec": "true",
+            "rc-post": "",
+            "rc-excl": "",
+            "rc-debits": "",
+            "rc-unclean": "",
+            "rc-out-class": "\"UNINSURABLE\"",
+            "rc-out-table": "\"Declined\"",
+            "rc-out-decision": "\"DECLINE\"",
+            "rc-out-load": "0",
+            "rc-out-refer": "false"
+          },
+          {
+            "_id": "migrated-s3-3",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "",
+            "rc-debits": ">= 200",
+            "rc-unclean": "",
+            "rc-out-class": "\"UNINSURABLE\"",
+            "rc-out-table": "\"Exceeds Max Table Rating (>=200 EM)\"",
+            "rc-out-decision": "\"DECLINE\"",
+            "rc-out-load": "0",
+            "rc-out-refer": "false"
+          },
+          {
+            "_id": "migrated-s3-4",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "true",
+            "rc-excl": "",
+            "rc-debits": "",
+            "rc-unclean": "",
+            "rc-out-class": "\"TEMPORARY_DEFERRED\"",
+            "rc-out-table": "\"Postponed\"",
+            "rc-out-decision": "\"POSTPONE\"",
+            "rc-out-load": "0",
+            "rc-out-refer": "true"
+          },
+          {
+            "_id": "migrated-s3-5",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "true",
+            "rc-debits": "<= 25",
+            "rc-unclean": "",
+            "rc-out-class": "\"STANDARD_WITH_EXCLUSION\"",
+            "rc-out-table": "\"Standard + Specific Exclusion Rider\"",
+            "rc-out-decision": "\"ACCEPT_WITH_EXCLUSIONS\"",
+            "rc-out-load": "0",
+            "rc-out-refer": "assessmentSummary.hasComorbidityUncleanTrigger"
+          },
+          {
+            "_id": "migrated-s3-6",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "",
+            "rc-debits": "> 25 and <= 50",
+            "rc-unclean": "",
+            "rc-out-class": "\"SUBSTANDARD_TABLE_A\"",
+            "rc-out-table": "\"Table A (+25% EM)\"",
+            "rc-out-decision": "\"ACCEPT_WITH_LOADING\"",
+            "rc-out-load": "25",
+            "rc-out-refer": "assessmentSummary.hasComorbidityUncleanTrigger"
+          },
+          {
+            "_id": "migrated-s3-7",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "",
+            "rc-debits": "> 50 and <= 100",
+            "rc-unclean": "",
+            "rc-out-class": "\"SUBSTANDARD_TABLE_B\"",
+            "rc-out-table": "\"Table B (+50% EM)\"",
+            "rc-out-decision": "\"ACCEPT_WITH_LOADING\"",
+            "rc-out-load": "50",
+            "rc-out-refer": "true"
+          },
+          {
+            "_id": "migrated-s3-8",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "",
+            "rc-debits": "> 100 and < 200",
+            "rc-unclean": "",
+            "rc-out-class": "\"SUBSTANDARD_TABLE_D\"",
+            "rc-out-table": "\"Table D (+100% EM)\"",
+            "rc-out-decision": "\"ACCEPT_WITH_LOADING\"",
+            "rc-out-load": "100",
+            "rc-out-refer": "true"
+          },
+          {
+            "_id": "migrated-s3-9",
+            "rc-suff": "",
+            "rc-dec": "",
+            "rc-post": "",
+            "rc-excl": "false",
+            "rc-debits": "<= 25",
+            "rc-unclean": "",
+            "rc-out-class": "\"STANDARD\"",
+            "rc-out-table": "\"Standard Rates (100% Mortality)\"",
+            "rc-out-decision": "\"ACCEPT_AS_PER_APPLICATION\"",
+            "rc-out-load": "0",
+            "rc-out-refer": "false"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node-step4-formatter",
+      "name": "4. Final Underwriting Output Envelope",
+      "type": "functionNode",
+      "position": {
+        "x": 1420,
+        "y": 240
+      },
+      "content": {
+        "source": "export const handler = async (input) => {\n  const missingDocs = (input.missingInfoMatches || []).map(m => ({ docCode: m.missingDoc, reason: m.reason }));\n  const assessments = input.assessmentMatches || [];\n  const exclusions = assessments.filter(a => a.exclusionCode).map(a => a.exclusionCode);\n  const cls = input.classificationResult || {};\n  const summary = input.assessmentSummary || {};\n  return {\n    applicantId: input.applicantId,\n    derivedMetrics: input.derived,\n    step1SufficientInfo: {\n      isSufficient: summary.isSufficient,\n      missingDocuments: missingDocs\n    },\n    step2RiskAssessment: {\n      totalEmDebits: summary.totalEmDebits,\n      exclusionCodes: exclusions,\n      hasDeclineTrigger: summary.hasDeclineTrigger,\n      hasPostponeTrigger: summary.hasPostponeTrigger,\n      hasComorbidityUncleanTrigger: summary.hasComorbidityUncleanTrigger,\n      matchedAssessmentRules: assessments\n    },\n    step3RiskClassification: {\n      riskClass: cls.riskClass,\n      actuarialTableRating: cls.actuarialTableRating,\n      loadingPct: cls.loadingPct\n    },\n    step4UnderwritingDecision: {\n      finalDecision: cls.finalDecision,\n      isUncleanReferral: cls.isUncleanReferral === true || cls.isUncleanReferral === 'true',\n      loadingPct: cls.loadingPct,\n      exclusions: exclusions,\n      requestedAdditionalInfo: missingDocs\n    }\n  };\n};"
+      }
+    },
+    {
+      "id": "node-output",
+      "name": "Underwriting Response",
+      "type": "outputNode",
+      "position": {
+        "x": 1680,
+        "y": 240
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "sourceId": "node-input",
+      "targetId": "node-formulas"
+    },
+    {
+      "id": "e2",
+      "sourceId": "node-formulas",
+      "targetId": "node-step1-info-check"
+    },
+    {
+      "id": "e3",
+      "sourceId": "node-formulas",
+      "targetId": "node-step2-risk-assessment"
+    },
+    {
+      "id": "e4",
+      "sourceId": "node-step1-info-check",
+      "targetId": "node-step2-summary"
+    },
+    {
+      "id": "e5",
+      "sourceId": "node-step2-risk-assessment",
+      "targetId": "node-step2-summary"
+    },
+    {
+      "id": "e6",
+      "sourceId": "node-step2-summary",
+      "targetId": "node-step3-classification"
+    },
+    {
+      "id": "e7",
+      "sourceId": "node-step3-classification",
+      "targetId": "node-step4-formatter"
+    },
+    {
+      "id": "e8",
+      "sourceId": "node-step4-formatter",
+      "targetId": "node-output"
+    }
+  ]
+}

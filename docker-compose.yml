@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: uw_gorules_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uw_user
+      POSTGRES_PASSWORD: uw_password
+      POSTGRES_DB: uw_engine_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uw_user -d uw_engine_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
