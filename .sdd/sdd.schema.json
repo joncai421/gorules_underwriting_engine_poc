@@ -1,0 +1,380 @@
+{
+  "$ref": "#/definitions/SddConfig",
+  "definitions": {
+    "SddConfig": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "default": "./.sdd/sdd.schema.json"
+        },
+        "version": {
+          "type": "string",
+          "const": "1.0",
+          "default": "1.0"
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "antigravity",
+              "copilot",
+              "codex",
+              "qoder"
+            ]
+          },
+          "minItems": 1
+        },
+        "paths": {
+          "type": "object",
+          "properties": {
+            "specsDir": {
+              "type": "string",
+              "default": ".specs/domains"
+            },
+            "changesDir": {
+              "type": "string",
+              "default": ".specs/changes"
+            },
+            "archiveDir": {
+              "type": "string",
+              "default": ".specs/archive"
+            },
+            "constitutionFile": {
+              "type": "string",
+              "default": ".specs/constitution.md"
+            },
+            "handoffStateFile": {
+              "type": "string",
+              "default": ".sdd/state/handoff.json"
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "techStack": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "default": "unconfigured"
+            },
+            "framework": {
+              "type": "string"
+            },
+            "packageManager": {
+              "type": "string",
+              "enum": [
+                "npm",
+                "pnpm",
+                "yarn",
+                "bun",
+                "poetry",
+                "uv",
+                "maven",
+                "gradle",
+                "unconfigured"
+              ],
+              "default": "unconfigured"
+            },
+            "commands": {
+              "type": "object",
+              "properties": {
+                "typecheck": {
+                  "type": "string"
+                },
+                "testUnit": {
+                  "type": "string"
+                },
+                "testSingleFile": {
+                  "type": "string"
+                },
+                "lint": {
+                  "type": "string"
+                },
+                "build": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "default": {}
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "benchmark": {
+          "type": "object",
+          "properties": {
+            "requireSpecBeforeCode": {
+              "type": "string",
+              "enum": [
+                "strict",
+                "warn",
+                "off"
+              ],
+              "default": "strict"
+            },
+            "requiredSpecSections": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "Scope & Boundaries",
+                "Type & Schema Contracts",
+                "Invariants & Edge Cases",
+                "Non-Goals & Constraints",
+                "Deterministic Verification"
+              ]
+            },
+            "tdd": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "$ref": "#/definitions/SddConfig/properties/benchmark/properties/requireSpecBeforeCode",
+                  "default": "strict"
+                },
+                "lockTestFilesDuringImpl": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "lockSchemaFilesDuringImpl": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "forbidWeakAssertions": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "testFilePatterns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": [
+                    "**/*.spec.ts",
+                    "**/*.test.ts",
+                    "**/test_*.py"
+                  ]
+                },
+                "schemaFilePatterns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": [
+                    "**/*.schema.ts",
+                    "**/*.interface.ts",
+                    "**/openapi.yaml"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "default": {}
+            },
+            "context": {
+              "type": "object",
+              "properties": {
+                "maxRootInstructionLines": {
+                  "type": "integer",
+                  "minimum": 50,
+                  "maximum": 300,
+                  "default": 120
+                },
+                "enableHierarchicalModuleDocs": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "enforceInterfaceOnlyImports": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "truncateToolOutputLines": {
+                  "type": "integer",
+                  "default": 40
+                },
+                "ignorePatterns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": [
+                    "node_modules/**",
+                    "dist/**",
+                    "build/**",
+                    "coverage/**",
+                    "*.lock",
+                    "pnpm-lock.yaml",
+                    "package-lock.json",
+                    "migrations/**"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "default": {}
+            },
+            "guardrails": {
+              "type": "object",
+              "properties": {
+                "enableNativeAgentHooks": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "enableGitHookFallback": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "gracefulBootstrapProbe": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "blockTypeEscapes": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "blockEmptyCatchBlocks": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "blockHardcodedSecrets": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "enforceGitDiffScopeCheck": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "additionalProperties": false,
+              "default": {}
+            },
+            "orchestrator": {
+              "type": "object",
+              "properties": {
+                "enableSubAgentIsolation": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "communicationProtocol": {
+                  "type": "string",
+                  "enum": [
+                    "file-state",
+                    "summary-only"
+                  ],
+                  "default": "file-state"
+                },
+                "maxTaskRetries": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5,
+                  "default": 3
+                },
+                "autoRollbackOnCircuitBreak": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "additionalProperties": false,
+              "default": {}
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "skills": {
+          "type": "object",
+          "properties": {
+            "refine": {
+              "type": "boolean",
+              "default": true
+            },
+            "refresh": {
+              "type": "boolean",
+              "default": true
+            },
+            "scan": {
+              "type": "boolean",
+              "default": true
+            },
+            "codeReview": {
+              "type": "boolean",
+              "default": true
+            },
+            "specPropose": {
+              "type": "boolean",
+              "default": true
+            },
+            "specPlan": {
+              "type": "boolean",
+              "default": true
+            },
+            "specExec": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "customRules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]+$"
+              },
+              "description": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "global",
+                  "module",
+                  "test",
+                  "spec"
+                ],
+                "default": "global"
+              },
+              "targetGlob": {
+                "type": "string"
+              },
+              "enforcement": {
+                "type": "string",
+                "enum": [
+                  "instruction",
+                  "regex-hook",
+                  "ast-check"
+                ],
+                "default": "instruction"
+              },
+              "forbiddenRegex": {
+                "type": "string"
+              },
+              "instructionText": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "description",
+              "instructionText"
+            ],
+            "additionalProperties": false
+          },
+          "default": []
+        }
+      },
+      "required": [
+        "agents"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

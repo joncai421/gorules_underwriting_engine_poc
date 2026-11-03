@@ -1,0 +1,107 @@
+{
+  "cliVersion": "0.1.0",
+  "configHash": "74c1737c2dcf8d181db88cf321544de517ed47712088e56dfcf184b5891579bf",
+  "bootstrapStage": "refined",
+  "lastRefinedAt": "2026-11-03T03:02:20Z",
+  "lastScannedCommit": null,
+  "activeSpecPath": null,
+  "activePhase": "idle",
+  "managedFiles": {
+    ".sdd/hooks/pre-tool-guard.mjs": {
+      "relativePath": ".sdd/hooks/pre-tool-guard.mjs",
+      "targetAgent": "shared",
+      "fileHash": "08cef11bc96358d7364da5e5fd6d927ba4c4792b90776c640dbe813f65b095a4",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".sdd/hooks/post-edit-guard.mjs": {
+      "relativePath": ".sdd/hooks/post-edit-guard.mjs",
+      "targetAgent": "shared",
+      "fileHash": "26fd1fe635863b366b4d1d3796a8191b9f6012193d144503a99970b3a0d3e3a3",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".sdd/hooks/pre-commit-gate.mjs": {
+      "relativePath": ".sdd/hooks/pre-commit-gate.mjs",
+      "targetAgent": "shared",
+      "fileHash": "b8a171ba571234b3dd803149bb09abcf065087d3c9426da1321c679344dc535a",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/rules/root.md": {
+      "relativePath": ".qoder/rules/root.md",
+      "targetAgent": "qoder",
+      "fileHash": "c812134de348699a158e22f47250c6b92db6b5e346e927a013469697329c7cb0",
+      "blocks": {
+        "benchmarkHash": "9f2251d5f01fb4f69c42fcce711ae81e3929ea69d35e994e85421c90bb7f2da7",
+        "refinedHash": "9a3646268a211c8c65625afd546ca910dcee7a69c7672d4d0e86622a1525c6ed",
+        "customHash": "8d04f0484784d663611e5468e66efbc40b579d0c92326dda9bdb693eee88c691"
+      },
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/refine.md": {
+      "relativePath": ".qoder/commands/refine.md",
+      "targetAgent": "qoder",
+      "fileHash": "d95a46a407299e0a346048e6d584cffdac4dfc38f2366eaf6d250e60cfc974ac",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/refresh.md": {
+      "relativePath": ".qoder/commands/refresh.md",
+      "targetAgent": "qoder",
+      "fileHash": "90a270a8feb976347cc9b8e42ef4a58fe808aafc8234e027de80742e73acfd14",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/scan.md": {
+      "relativePath": ".qoder/commands/scan.md",
+      "targetAgent": "qoder",
+      "fileHash": "62017c3c2fd9b897f996785d88336661071fa4f108b0fa45b597679ba5bc746a",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/code-review.md": {
+      "relativePath": ".qoder/commands/code-review.md",
+      "targetAgent": "qoder",
+      "fileHash": "78007ccac1b8e9907ed4927c7dbde7d9dfb8a40b8761f5ce4f5e649a0ae60a79",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/spec-propose.md": {
+      "relativePath": ".qoder/commands/spec-propose.md",
+      "targetAgent": "qoder",
+      "fileHash": "2dfd20aefc6460624e163defd58e87a8257bbd011ef4c637400febc2df9f5fc6",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/spec-plan.md": {
+      "relativePath": ".qoder/commands/spec-plan.md",
+      "targetAgent": "qoder",
+      "fileHash": "b0f59e9a8d98fba63f4b49eff90d3a1b4976ddd5d47f16585c91fd8dc84988d2",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/commands/spec-exec.md": {
+      "relativePath": ".qoder/commands/spec-exec.md",
+      "targetAgent": "qoder",
+      "fileHash": "fddfd390c34510a200c3ffe4d2d0465a5063b023ae510726c996ba81ee528bf0",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/agents/sdd-reviewer.md": {
+      "relativePath": ".qoder/agents/sdd-reviewer.md",
+      "targetAgent": "qoder",
+      "fileHash": "b1c1e368e820189ade57422eeca7cdf6163619df7715632cf83fa1e16fca8762",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    },
+    ".qoder/settings.json": {
+      "relativePath": ".qoder/settings.json",
+      "targetAgent": "qoder",
+      "fileHash": "da481e656b27d5eaf480f9c313e9172eead0ba9cb98d5975c3f35b8de55252e1",
+      "lastUpdatedBy": "refine",
+      "updatedAt": "2026-11-03T03:02:20Z"
+    }
+  }
+}

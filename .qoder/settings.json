@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|NotebookEdit|Write",
+        "hooks": [
+          "node .sdd/hooks/pre-tool-guard.mjs",
+          "node .sdd/hooks/post-edit-guard.mjs"
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          "node .sdd/hooks/pre-tool-guard.mjs"
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|NotebookEdit|Write",
+        "hooks": [
+          "node .sdd/hooks/post-edit-guard.mjs"
+        ]
+      }
+    ]
+  },
+  "sdd": {
+    "bootstrapStage": "scaffolded",
+    "probeMode": false
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "protocol": "file-state",
+  "version": "1.0",
+  "activeSpecPath": null,
+  "phase": "idle",
+  "producer": null,
+  "consumer": null,
+  "maxTaskRetries": 3,
+  "retryCount": 0,
+  "lastHandoffAt": null,
+  "messages": [],
+  "_doc": "File-state handoff channel for isolated sub-agents (SDD benchmark 5.2.1). The orchestrator writes a task here; an isolated sub-agent (e.g. sdd-reviewer, read-only w.r.t. implementation) appends its verdict to `messages` and never edits implementation code directly. `phase` mirrors .sdd/spec-lock.json (idle | spec | test-red | impl-green | review). Set `retryCount` on each failed attempt; when it reaches `maxTaskRetries`, roll back the spec's implementation files and halt."
+}

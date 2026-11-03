@@ -1,0 +1,79 @@
+# sdd-cli unified configuration (SSoT for agent instructions, guardrails & skills).
+# Tech-stack bindings are populated by the `/refine` skill; custom rules sync via `/refresh`.
+version: "1.0"
+agents:
+  - qoder
+paths:
+  specsDir: .specs/domains
+  changesDir: .specs/changes
+  archiveDir: .specs/archive
+  constitutionFile: .specs/constitution.md
+  handoffStateFile: .sdd/state/handoff.json
+techStack:
+  language: typescript
+  framework: Fastify 5 (engine) + React 18 / Vite 5 (admin UI)
+  packageManager: npm
+  commands:
+    typecheck: npx tsc --noEmit -p gorules-ts-engine/tsconfig.json && npx tsc --noEmit -p gorules-admin-ui/tsconfig.json
+    testUnit: npm run selftest --silent
+    testSingleFile: npx tsx <path-to-file.ts>
+# `lint` is intentionally unset: no ESLint/Biome config exists in this repo.
+# Static enforcement is carried by `typecheck` (tsc strict) plus the guardrail hooks
+# (type escapes, empty catch, hardcoded secrets). Do not bind a phantom linter here.
+benchmark:
+  requireSpecBeforeCode: strict
+  requiredSpecSections:
+    - Scope & Boundaries
+    - Type & Schema Contracts
+    - Invariants & Edge Cases
+    - Non-Goals & Constraints
+    - Deterministic Verification
+  tdd:
+    mode: strict
+    lockTestFilesDuringImpl: true
+    lockSchemaFilesDuringImpl: true
+    forbidWeakAssertions: true
+    testFilePatterns:
+      - "**/*.spec.ts"
+      - "**/*.test.ts"
+      - "**/test_*.py"
+    schemaFilePatterns:
+      - "**/*.schema.ts"
+      - "**/*.interface.ts"
+      - "**/openapi.yaml"
+  context:
+    maxRootInstructionLines: 120
+    enableHierarchicalModuleDocs: true
+    enforceInterfaceOnlyImports: true
+    truncateToolOutputLines: 40
+    ignorePatterns:
+      - node_modules/**
+      - dist/**
+      - build/**
+      - coverage/**
+      - "*.lock"
+      - pnpm-lock.yaml
+      - package-lock.json
+      - migrations/**
+  guardrails:
+    enableNativeAgentHooks: true
+    enableGitHookFallback: true
+    gracefulBootstrapProbe: true
+    blockTypeEscapes: true
+    blockEmptyCatchBlocks: true
+    blockHardcodedSecrets: true
+    enforceGitDiffScopeCheck: true
+  orchestrator:
+    enableSubAgentIsolation: true
+    communicationProtocol: file-state
+    maxTaskRetries: 3
+    autoRollbackOnCircuitBreak: true
+skills:
+  refine: true
+  refresh: true
+  scan: true
+  codeReview: true
+  specPropose: true
+  specPlan: true
+  specExec: true
+customRules: []
